@@ -33,14 +33,14 @@ Những gì bạn cần để có thể chạy ứng dụng cục bộ:
 
 1. Thiết lập các biến môi trường:
    Thêm các biến môi trường:
-   - Trong folder `/server`, thêm file này:
+   - Trong folder `/server`, thêm file `.env`:
 
    ```.env
    DATABASE_URL="mongodb://mongo-container:27017" 
    CLIENT_ORIGIN="http://localhost:5173"
    ```
 
-   - Trong folder `/client`, thêm file này:
+   - Trong folder `/client`, thêm file `.env`:
    ```.env
    VITE_SERVER_URL="http://localhost:3000"
    ``` 
@@ -69,7 +69,7 @@ Bây giờ ứng dụng sẽ chạy trên http://localhost:5173
 
 2. Config server 
 
-   - Trong folder `/server`, thêm file này:
+   - Trong folder `/server`, thêm file `.env`:
    ```.env
    DATABASE_URL="mongodb://localhost:27017"
    CLIENT_ORIGIN="http://localhost:5173"
@@ -86,7 +86,7 @@ Bây giờ máy chủ backend sẽ chạy trên http://localhost:3000
 
 3. Config client
 
-   - Trong folder `/client`, thêm file này:
+   - Trong folder `/client`, thêm file `.env`:
    ```.env
    VITE_SERVER_URL="http://localhost:3000"
    ``` 
