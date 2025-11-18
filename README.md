@@ -32,21 +32,21 @@ Những gì bạn cần để có thể chạy ứng dụng cục bộ:
 ## 🐋 Cài đặt (với Docker):
 
 1. Thiết lập các biến môi trường:
-   - Thêm các biến môi trường:
-   - Trong `Google-Docs-Clone/server`, thêm tệp này:
+   Thêm các biến môi trường:
+   - Trong folder `/server`, thêm file này:
 
    ```.env
    DATABASE_URL="mongodb://mongo-container:27017" 
    CLIENT_ORIGIN="http://localhost:5173"
    ```
 
-   - Trong `Google-Docs-Clone/client`, thêm tệp này:
+   - Trong folder `/client`, thêm file này:
    ```.env
    VITE_SERVER_URL="http://localhost:3000"
    ``` 
      
 
-2. Chạy lệnh sau trong thư mục gốc: 
+2. Chạy lệnh sau trong folder gốc: 
     ```sh
     docker-compose up
     ```
@@ -56,7 +56,7 @@ Bây giờ ứng dụng sẽ chạy trên http://localhost:5173
 
 ### 🟢 Cài đặt (không dùng Docker):
 
-1. Sao chép kho lưu trữ.
+1. Clone repo
 
    ```sh
    git clone https://github.com/lephantriduc/collaborative-docs
@@ -67,9 +67,9 @@ Bây giờ ứng dụng sẽ chạy trên http://localhost:5173
    git clone git@github.com:lephantriduc/collaborative-docs.git
    ```
 
-2. Cấu hình máy chủ 
+2. Config server 
 
-   - Chuyển thư mục của bạn đến `Google-Docs-Clone/server` và sau đó thêm một tệp mới:
+   - `cd` đến folder `/server` và sau đó thêm một file mới:
    ```.env
    DATABASE_URL="mongodb://localhost:27017"
    CLIENT_ORIGIN="http://localhost:5173"
@@ -84,9 +84,9 @@ Bây giờ ứng dụng sẽ chạy trên http://localhost:5173
 
 Bây giờ máy chủ backend sẽ chạy trên http://localhost:3000
 
-6. Cấu hình máy khách
+6. Config client
 
-   - Chuyển thư mục của bạn đến `Google-Docs-Clone/client` và sau đó thêm một tệp mới:
+   - `cd` đến folder `/client` và sau đó thêm một file mới:
 
    ```.env
    VITE_SERVER_URL="http://localhost:3000"
@@ -111,14 +111,14 @@ Bây giờ máy chủ backend sẽ chạy trên http://localhost:3000
   - Node.js
   - Socket.io
 
-- **Cơ sở dữ liệu:**
+- **DB:**
   - MongoDB
 
-- **Công cụ khác:**
+- **Khác:**
   - TypeScript
   - Docker
 
 
-## ▶️ Xem trước
+## ▶️ Demo
 
 https://github.com/KshitijTodkar48/Google-Docs-Clone/assets/120639775/a7dc1200-3617-4214-b065-339a55eaad59
