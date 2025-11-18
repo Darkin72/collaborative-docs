@@ -12,22 +12,22 @@
 
 - [ ] Thêm auth (Đăng nhập / Đăng ký người dùng)
 - [ ] Cài đặt kiến trúc Pub/Sub
+- [ ] Dùng redis để cache, giảm độ trễ
+- [ ] Rate litmit để giới hạn người dùng thực hiện CRUD
+- [ ] Batching, gộm update theo các quãng thời gian ngắn
 - ... còn nữa
 
+## TODO
+- [ ] Cài đặt các cải tiến
+- [ ] Chạy và đánh giá hiệu quả *trước* và *sau* khi cải tiến
 
-## ▶️ Bắt đầu
-
-Để có một bản sao cục bộ và chạy, vui lòng làm theo các bước đơn giản sau.
-
-### 🟡 Yêu cầu
+## 🟡 Yêu cầu
 
 Những gì bạn cần để có thể chạy ứng dụng cục bộ:
 
 - Node.js (Phiên bản: >=18.x)
 - MongoDB
 - npm 
-
-## 💻 Phát triển
 
 ## 🐋 Cài đặt (với Docker):
 
@@ -54,7 +54,7 @@ Những gì bạn cần để có thể chạy ứng dụng cục bộ:
 Bây giờ ứng dụng sẽ chạy trên http://localhost:5173
 
 
-### 🟢 Cài đặt (không dùng Docker):
+## 🟢 Cài đặt (không dùng Docker):
 
 1. Clone repo
 
