@@ -29,7 +29,7 @@ Những gì bạn cần để có thể chạy ứng dụng cục bộ:
 - MongoDB
 - npm 
 
-## 🐋 Cài đặt (với Docker):
+## 🐋 Cài đặt (với Docker) - **RECOMMENDED**:
 
 1. Thiết lập các biến môi trường:
    Thêm các biến môi trường:

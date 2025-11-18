@@ -1,22 +1,23 @@
 services:
-  client:
-    build:
-      context: ./client
-    ports:
-      - "5173:5173"
-    env_file:
-      - ./client/.env
+    client:
+        build:
+            context: ./client
+        ports:
+            - "5173:5173"
+        env_file:
+            - ./client/.env
 
-  server:
-    build:
-      context: ./server
-    ports:
-      - "3000:3000"
-    env_file:
-      - ./server/.env
+    server:
+        build:
+            context: ./server
+        ports:
+            - "3000:3000"
+        env_file:
+            - ./server/.env
 
-  mongo:
-    image: mongo
-    container_name: mongo-container
-    ports:
-      - "27017:27017"
+    mongo:
+        image: mongo
+        container_name: mongo-container
+        ports:
+            - "27017:27017"
+        command: ["mongod", "--logpath", "/dev/null"]
