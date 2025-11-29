@@ -105,6 +105,7 @@ Bây giờ máy chủ backend sẽ chạy trên http://localhost:3000
   - React.js
   - Quill
   - shadcn/ui
+  - TailwindCSS
 
 - **Backend:**
   - Node.js
