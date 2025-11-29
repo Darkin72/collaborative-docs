@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react" ;
 import { Docs } from "./Docs";
-import { io } from "socket.io-client";
+import socket from "../socket";
 import { Topbar } from "./Topbar";
 import { Dialogbox } from "./Dialogbox";
   
@@ -19,16 +19,16 @@ export const LandingPage = () => {
     const [documents, setDocuments] = useState<DocumentType[]>([]) ;
 
     useEffect(() => {
-        const socket = io(import.meta.env.VITE_SERVER_URL) ;
-
         socket.emit("get-all-documents") ;
 
-        socket.on("all-documents", (allDocuments) => {
+        const handleAllDocuments = (allDocuments: DocumentType[]) => {
             setDocuments(allDocuments) ;
-        });
+        };
+
+        socket.on("all-documents", handleAllDocuments);
         
         return () => {
-            socket.disconnect() ;
+            socket.off("all-documents", handleAllDocuments);
         }
     }, []) ;
 

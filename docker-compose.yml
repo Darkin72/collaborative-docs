@@ -6,6 +6,8 @@ services:
             - "5173:5173"
         env_file:
             - ./client/.env
+        depends_on:
+            - server
 
     server:
         build:
@@ -14,10 +16,38 @@ services:
             - "3000:3000"
         env_file:
             - ./server/.env
+        depends_on:
+            - mongo
+            - redis
+        environment:
+            - REDIS_HOST=redis
+            - REDIS_PORT=6379
 
     mongo:
         image: mongo
         container_name: mongo-container
         ports:
             - "27017:27017"
+        volumes:
+            - mongo-data:/data/db
         command: ["mongod", "--logpath", "/dev/null"]
+
+    redis:
+        image: redis:7-alpine
+        container_name: redis-container
+        ports:
+            - "6379:6379"
+        volumes:
+            - redis-data:/data
+        command: redis-server --appendonly yes
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+
+volumes:
+    mongo-data:
+        driver: local
+    redis-data:
+        driver: local

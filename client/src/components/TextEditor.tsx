@@ -2,21 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 import { TOOLBAR_OPTIONS, SAVE_INTERVAL_MS } from '../constants';
-import { io, Socket } from 'socket.io-client';
+import socket from '../socket';
 import { useParams } from 'react-router-dom';
 
 export const TextEditor = () => {
-    const [socket, setSocket] = useState<Socket>() ;
     const [quill, setQuill] = useState<Quill>() ;
     const { id: documentId } = useParams() ;
-    
-    useEffect(() => {
-        const skt = io(import.meta.env.VITE_SERVER_URL) ;
-        setSocket(skt) ;
-        return () => {
-            skt.disconnect() ;
-        }
-    }, [])
 
     const wrapperRef = useCallback((wrapper: HTMLDivElement) => {
         if(!wrapper) return ;
@@ -39,7 +30,7 @@ export const TextEditor = () => {
 
     // Sending changes to server.
     useEffect(() => {
-        if(!socket || !quill){
+        if(!quill){
             return ;
         }
 
@@ -55,11 +46,11 @@ export const TextEditor = () => {
             quill.off("text-change", handler) ;
         }
 
-    }, [socket, quill])
+    }, [quill])
 
     // Receiving changes from server.
     useEffect(() => {
-        if(!socket || !quill){
+        if(!quill){
             return ;
         }
 
@@ -74,25 +65,31 @@ export const TextEditor = () => {
             socket.off("receive-changes", handler) ;
         }
 
-    }, [socket, quill])
+    }, [quill])
 
     useEffect(() => {
-        if(!socket || !quill){
+        if(!quill){
             return ;
         }
 
-        socket.once("load-document", document => {
+        const handleLoadDocument = (document: any) => {
             quill.setContents(document) ;
             quill.enable() ;
-        })
+        };
+
+        socket.once("load-document", handleLoadDocument);
 
         const documentName = localStorage.getItem(`document-name-for-${documentId}`) || "Untitled" ;
         socket.emit("get-document", { documentId, documentName }) ;
 
-    }, [socket, quill, documentId])
+        return () => {
+            socket.off("load-document", handleLoadDocument);
+        };
+
+    }, [quill, documentId])
 
     useEffect(() => {
-        if(!socket || !quill){
+        if(!quill){
             return ;
         }
         const interval = setInterval(() => {
@@ -101,9 +98,8 @@ export const TextEditor = () => {
 
         return () => {
             clearInterval(interval) ;
-            localStorage.clear() ;
         }
-    }, [socket, quill])
+    }, [quill])
 
     return(
         <div className="editorContainer" ref={wrapperRef}>
