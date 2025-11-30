@@ -76,11 +76,35 @@ initializeRedisAdapter().then(() => {
   console.log(`Socket.io server ready on port ${PORT}`);
 });
 
+// Track disconnecting users with timers (using persistent userId)
+const disconnectTimers = new Map<string, NodeJS.Timeout>();
+// Map userId to current socket.id
+const userSocketMap = new Map<string, string>();
+const DISCONNECT_TIMEOUT = 15000; // 15 seconds
+
 io.on("connection", (socket) => {
   const currentClients = io.sockets.sockets.size;
-  console.log(
-    `Client connected: ${socket.id} (Currently connected: ${currentClients})`,
-  );
+  const userId = socket.handshake.auth.userId as string;
+
+  if (!userId) {
+    console.error("Connection rejected: no userId provided");
+    socket.disconnect();
+    return;
+  }
+
+  // Check if this is a reconnection - cancel any pending disconnect timer
+  if (disconnectTimers.has(userId)) {
+    clearTimeout(disconnectTimers.get(userId)!);
+    disconnectTimers.delete(userId);
+    console.log(`User reconnected: ${userId} (new socket: ${socket.id})`);
+  } else {
+    console.log(
+      `New user connected: ${userId} (socket: ${socket.id}, total clients: ${currentClients})`,
+    );
+  }
+
+  // Update the userId to socket.id mapping
+  userSocketMap.set(userId, socket.id);
 
   socket.on("get-all-documents", async () => {
     const allDocuments = await getAllDocuments();
@@ -116,20 +140,42 @@ io.on("connection", (socket) => {
     // Log which documents the user is unsubscribing from
     for (const room of socket.rooms) {
       if (room !== socket.id) {
-        console.log(`User ${socket.id} unsubscribed from document ${room}`);
+        console.log(`User ${userId} unsubscribing from document ${room} (pending timeout)`);
       }
     }
   });
 
   socket.on("disconnect", () => {
     const currentClients = io.sockets.sockets.size;
-    console.log(`Client disconnected: ${socket.id} (Currently connected: ${currentClients})`);
+    console.log(`User ${userId} disconnecting (socket: ${socket.id}) - starting ${DISCONNECT_TIMEOUT/1000}s timeout`);
+
+    // Store the rooms this socket was in before disconnecting
+    const userRooms = Array.from(socket.rooms).filter(room => room !== socket.id);
+
+    // Start a timeout before considering the user truly disconnected
+    const timer = setTimeout(() => {
+      disconnectTimers.delete(userId);
+      userSocketMap.delete(userId);
+      console.log(`User ${userId} permanently disconnected (total clients: ${currentClients})`);
+
+      // Notify document rooms that user has left (after timeout)
+      userRooms.forEach(documentId => {
+        io.to(documentId).emit("user-left", { userId });
+      });
+    }, DISCONNECT_TIMEOUT);
+
+    disconnectTimers.set(userId, timer);
   });
 });
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received, closing server gracefully");
+
+  // Clear all disconnect timers
+  disconnectTimers.forEach(timer => clearTimeout(timer));
+  disconnectTimers.clear();
+
   io.close(() => {
     console.log("Socket.io server closed");
     process.exit(0);
