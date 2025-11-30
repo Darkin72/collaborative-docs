@@ -10,15 +10,28 @@ function getUserId(): string {
   return userId;
 }
 
+// Get username from stored user data
+function getUsername(): string {
+  const userStr = localStorage.getItem("user");
+  if (userStr) {
+    try {
+      const user = JSON.parse(userStr);
+      return user.username || "Guest";
+    } catch {
+      return "Guest";
+    }
+  }
+  return "Guest";
+}
+
 const socket = io(import.meta.env.VITE_SERVER_URL, {
-  autoConnect: true,
+  autoConnect: false, // Changed to false - only connect after login
   reconnection: true,
   reconnectionDelay: 1000,
   reconnectionAttempts: 5,
-  transports: ["websocket"],
-  upgrade: false,
   auth: {
     userId: getUserId(),
+    username: getUsername(),
   },
 });
 

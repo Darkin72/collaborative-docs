@@ -10,6 +10,7 @@ import {
   findOrCreateDocument,
   updateDocument,
 } from "./controllers/documentController";
+import { validateCredentials } from "./data/accounts";
 
 const PORT = Number(process.env.PORT || 3000);
 
@@ -76,15 +77,15 @@ initializeRedisAdapter().then(() => {
   console.log(`Socket.io server ready on port ${PORT}`);
 });
 
-// Track disconnecting users with timers (using persistent userId)
-const disconnectTimers = new Map<string, NodeJS.Timeout>();
 // Map userId to current socket.id
 const userSocketMap = new Map<string, string>();
-const DISCONNECT_TIMEOUT = 15000; // 15 seconds
+// Track users who intentionally logged out
+const intentionalLogouts = new Set<string>();
 
 io.on("connection", (socket) => {
   const currentClients = io.sockets.sockets.size;
   const userId = socket.handshake.auth.userId as string;
+  const username = socket.handshake.auth.username as string;
 
   if (!userId) {
     console.error("Connection rejected: no userId provided");
@@ -92,19 +93,34 @@ io.on("connection", (socket) => {
     return;
   }
 
-  // Check if this is a reconnection - cancel any pending disconnect timer
-  if (disconnectTimers.has(userId)) {
-    clearTimeout(disconnectTimers.get(userId)!);
-    disconnectTimers.delete(userId);
-    console.log(`User reconnected: ${userId} (new socket: ${socket.id})`);
-  } else {
-    console.log(
-      `New user connected: ${userId} (socket: ${socket.id}, total clients: ${currentClients})`,
-    );
-  }
+  // Username might be "Guest" for initial login page connection
+  const displayUsername = username || "Guest";
+
+  console.log(
+    `User connected: ${userId} (${displayUsername}) (socket: ${socket.id}, total clients: ${currentClients})`,
+  );
 
   // Update the userId to socket.id mapping
   userSocketMap.set(userId, socket.id);
+  // Clear any intentional logout flag on reconnect
+  intentionalLogouts.delete(userId);
+
+  // Authentication endpoint
+  socket.on("login", ({ username, password }, callback) => {
+    const account = validateCredentials(username, password);
+    if (account) {
+      callback({
+        success: true,
+        user: {
+          id: account.id,
+          username: account.username,
+          displayName: account.displayName,
+        },
+      });
+    } else {
+      callback({ success: false, error: "Invalid credentials" });
+    }
+  });
 
   socket.on("get-all-documents", async () => {
     const allDocuments = await getAllDocuments();
@@ -136,45 +152,58 @@ io.on("connection", (socket) => {
     });
   });
 
+  // Handle intentional logout
+  socket.on("user-logout", () => {
+    console.log(
+      `User ${userId} (${displayUsername}) initiated intentional logout`,
+    );
+    intentionalLogouts.add(userId);
+  });
+
   socket.on("disconnecting", () => {
     // Log which documents the user is unsubscribing from
     for (const room of socket.rooms) {
       if (room !== socket.id) {
-        console.log(`User ${userId} unsubscribing from document ${room} (pending timeout)`);
+        console.log(
+          `User ${userId} unsubscribing from document ${room}`,
+        );
       }
     }
   });
 
   socket.on("disconnect", () => {
     const currentClients = io.sockets.sockets.size;
-    console.log(`User ${userId} disconnecting (socket: ${socket.id}) - starting ${DISCONNECT_TIMEOUT/1000}s timeout`);
 
-    // Store the rooms this socket was in before disconnecting
-    const userRooms = Array.from(socket.rooms).filter(room => room !== socket.id);
+    console.log(
+      `User ${userId} (${displayUsername}) disconnected (socket: ${socket.id}, total clients: ${currentClients})`,
+    );
 
-    // Start a timeout before considering the user truly disconnected
-    const timer = setTimeout(() => {
-      disconnectTimers.delete(userId);
-      userSocketMap.delete(userId);
-      console.log(`User ${userId} permanently disconnected (total clients: ${currentClients})`);
+    userSocketMap.delete(userId);
 
-      // Notify document rooms that user has left (after timeout)
-      userRooms.forEach(documentId => {
-        io.to(documentId).emit("user-left", { userId });
+    // Store the rooms this socket was in
+    const userRooms = Array.from(socket.rooms).filter(
+      (room) => room !== socket.id,
+    );
+
+    // Notify rooms that user has left
+    userRooms.forEach((documentId) => {
+      io.to(documentId).emit("user-left", {
+        userId,
+        username: displayUsername,
       });
-    }, DISCONNECT_TIMEOUT);
+    });
 
-    disconnectTimers.set(userId, timer);
+    // Check if this was an intentional logout
+    if (intentionalLogouts.has(userId)) {
+      intentionalLogouts.delete(userId);
+      console.log(`User ${userId} (${displayUsername}) logged out`);
+    }
   });
 });
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received, closing server gracefully");
-
-  // Clear all disconnect timers
-  disconnectTimers.forEach(timer => clearTimeout(timer));
-  disconnectTimers.clear();
 
   io.close(() => {
     console.log("Socket.io server closed");

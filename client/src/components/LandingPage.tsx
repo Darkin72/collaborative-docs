@@ -14,8 +14,18 @@ interface DocumentType {
     __v: number;
 }
 
+interface User {
+    id: string;
+    username: string;
+    displayName: string;
+}
 
-export const LandingPage = () => {
+interface LandingPageProps {
+    user: User;
+    onLogout: () => void;
+}
+
+export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
     const [documents, setDocuments] = useState<DocumentType[]>([]) ;
 
     useEffect(() => {
@@ -34,7 +44,7 @@ export const LandingPage = () => {
 
     return(
         <div className="LandingPage">
-            <Topbar />
+            <Topbar user={user} onLogout={onLogout} />
             <div className="Docs-container-1">
                 <div className="title-1"> Start a new document </div>
                 <div> <Dialogbox /> </div>
