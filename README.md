@@ -29,7 +29,7 @@ Những gì bạn cần để có thể chạy ứng dụng cục bộ:
 - MongoDB
 - npm 
 
-## 🐋 Cài đặt (với Docker) - **RECOMMENDED**:
+## 🐋 Cài đặt (với Docker):
 1. Clone repo
 
    ```sh
@@ -57,47 +57,6 @@ Những gì bạn cần để có thể chạy ứng dụng cục bộ:
     ```
 
 Bây giờ ứng dụng sẽ chạy trên http://localhost:5173
-
-
-## 🟢 Cài đặt (không dùng Docker):
-
-1. Clone repo
-
-   ```sh
-   git clone https://github.com/lephantriduc/collaborative-docs
-   ``` 
-
-2. Config server 
-
-   - Trong folder `/server`, thêm file `.env`:
-   ```.env
-   DATABASE_URL="mongodb://localhost:27017"
-   CLIENT_ORIGIN="http://localhost:5173"
-   ```
-
-   - Và sau đó chạy:
-
-   ```sh
-   npm install
-   npm run dev
-   ```
-
-Bây giờ máy chủ backend sẽ chạy trên http://localhost:3000
-
-3. Config client
-
-   - Trong folder `/client`, thêm file `.env`:
-   ```.env
-   VITE_SERVER_URL="http://localhost:3000"
-   ``` 
-
-   - Và sau đó chạy:
-
-   ```sh
-   npm install
-   npm run dev
-   ```
-Ứng dụng React sẽ chạy trên http://localhost:5173
 
 ## 🔧 Công nghệ sử dụng
 

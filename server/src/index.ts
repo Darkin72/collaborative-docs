@@ -3,6 +3,27 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import { createClient } from "redis";
 import { createAdapter } from "@socket.io/redis-adapter";
+import express from "express";
+import { Request, Response } from "express";
+import cors from "cors";
+import { createServer } from "http";
+
+interface User {
+  id: string;
+  username: string;
+  displayName: string;
+}
+
+interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+interface LoginResponse {
+  success: boolean;
+  user?: User;
+  error?: string;
+}
 
 dotenv.config();
 import {
@@ -24,10 +45,83 @@ mongoose
     console.log("DB connection failed. " + error);
   });
 
-const io = new Server(PORT, {
+/** Express HTTP Server Setup */
+const app = express();
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    credentials: true,
+  }),
+);
+app.use(express.json());
+
+const httpServer = createServer(app);
+
+/** HTTP API Routes */
+app.post(
+  "/api/login",
+  (
+    req: Request<{}, LoginResponse, LoginRequest>,
+    res: Response<LoginResponse>,
+  ) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Username and password required" });
+    }
+
+    const account = validateCredentials(username, password);
+    if (account) {
+      res.json({
+        success: true,
+        user: {
+          id: account.id,
+          username: account.username,
+          displayName: account.displayName,
+        },
+      });
+    } else {
+      res.status(401).json({ success: false, error: "Invalid credentials" });
+    }
+  },
+);
+
+app.post(
+  "/api/logout",
+  (req: Request, res: Response<{ success: boolean; message: string }>) => {
+    res.json({ success: true, message: "Logged out successfully" });
+  },
+);
+
+interface DocumentsResponse {
+  success: boolean;
+  documents?: any[];
+  error?: string;
+}
+
+app.get(
+  "/api/documents",
+  async (req: Request, res: Response<DocumentsResponse>) => {
+    try {
+      const allDocuments = await getAllDocuments();
+      allDocuments.reverse();
+      res.json({ success: true, documents: allDocuments });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, error: "Failed to fetch documents" });
+    }
+  },
+);
+
+/** Socket.IO Server Setup */
+const io = new Server(httpServer, {
   cors: {
     origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
@@ -77,11 +171,6 @@ initializeRedisAdapter().then(() => {
   console.log(`Socket.io server ready on port ${PORT}`);
 });
 
-// Map userId to current socket.id
-const userSocketMap = new Map<string, string>();
-// Track users who intentionally logged out
-const intentionalLogouts = new Set<string>();
-
 io.on("connection", (socket) => {
   const currentClients = io.sockets.sockets.size;
   const userId = socket.handshake.auth.userId as string;
@@ -93,45 +182,18 @@ io.on("connection", (socket) => {
     return;
   }
 
-  // Username might be "Guest" for initial login page connection
   const displayUsername = username || "Guest";
 
   console.log(
-    `User connected: ${userId} (${displayUsername}) (socket: ${socket.id}, total clients: ${currentClients})`,
+    `User connected: ${displayUsername} (current # of channels: ${currentClients})`,
   );
-
-  // Update the userId to socket.id mapping
-  userSocketMap.set(userId, socket.id);
-  // Clear any intentional logout flag on reconnect
-  intentionalLogouts.delete(userId);
-
-  // Authentication endpoint
-  socket.on("login", ({ username, password }, callback) => {
-    const account = validateCredentials(username, password);
-    if (account) {
-      callback({
-        success: true,
-        user: {
-          id: account.id,
-          username: account.username,
-          displayName: account.displayName,
-        },
-      });
-    } else {
-      callback({ success: false, error: "Invalid credentials" });
-    }
-  });
-
-  socket.on("get-all-documents", async () => {
-    const allDocuments = await getAllDocuments();
-    allDocuments.reverse();
-    socket.emit("all-documents", allDocuments);
-  });
 
   socket.on("get-document", async ({ documentId, documentName }) => {
     // Join both Socket.io room AND create dedicated Redis channel
     socket.join(documentId);
-    console.log(`User ${socket.id} subscribed to document ${documentId}`);
+    console.log(
+      `User ${displayUsername} subscribed to document ${documentName} (document id: ${documentId})`,
+    );
 
     const document = await findOrCreateDocument({ documentId, documentName });
 
@@ -152,61 +214,41 @@ io.on("connection", (socket) => {
     });
   });
 
-  // Handle intentional logout
-  socket.on("user-logout", () => {
-    console.log(
-      `User ${userId} (${displayUsername}) initiated intentional logout`,
-    );
-    intentionalLogouts.add(userId);
-  });
-
   socket.on("disconnecting", () => {
     // Log which documents the user is unsubscribing from
     for (const room of socket.rooms) {
       if (room !== socket.id) {
         console.log(
-          `User ${userId} unsubscribing from document ${room}`,
+          `User ${displayUsername} unsubscribing from document ${room}`,
         );
+        // Notify room that user left
+        socket.to(room).emit("user-left", {
+          userId,
+          username: displayUsername,
+        });
       }
     }
   });
 
   socket.on("disconnect", () => {
     const currentClients = io.sockets.sockets.size;
-
     console.log(
-      `User ${userId} (${displayUsername}) disconnected (socket: ${socket.id}, total clients: ${currentClients})`,
+      `User ${displayUsername} disconnected (current # of channels: ${currentClients})`,
     );
-
-    userSocketMap.delete(userId);
-
-    // Store the rooms this socket was in
-    const userRooms = Array.from(socket.rooms).filter(
-      (room) => room !== socket.id,
-    );
-
-    // Notify rooms that user has left
-    userRooms.forEach((documentId) => {
-      io.to(documentId).emit("user-left", {
-        userId,
-        username: displayUsername,
-      });
-    });
-
-    // Check if this was an intentional logout
-    if (intentionalLogouts.has(userId)) {
-      intentionalLogouts.delete(userId);
-      console.log(`User ${userId} (${displayUsername}) logged out`);
-    }
   });
+});
+
+// Start HTTP server (handles both Express and Socket.IO)
+httpServer.listen(PORT, () => {
+  console.log(`HTTP + Socket.IO server running on port ${PORT}`);
 });
 
 // Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received, closing server gracefully");
 
-  io.close(() => {
-    console.log("Socket.io server closed");
+  httpServer.close(() => {
+    console.log("Server closed");
     process.exit(0);
   });
 });

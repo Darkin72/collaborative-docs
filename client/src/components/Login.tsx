@@ -1,5 +1,4 @@
 import { useState } from "react";
-import socket from "../socket";
 
 interface LoginProps {
   onLoginSuccess: (user: {
@@ -15,45 +14,39 @@ export const Login = ({ onLoginSuccess }: LoginProps) => {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  // Ensure a persistent socket user id exists
-  const ensureSocketUserId = (): string => {
-    let id = localStorage.getItem("socket-user-id");
-    if (!id) {
-      id = `user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      localStorage.setItem("socket-user-id", id);
-    }
-    return id;
-  };
-
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setIsLoading(true);
 
-    // Ensure socket handshake contains the attempted username and a valid userId
-    const userId = ensureSocketUserId();
-    socket.auth = {
-      userId,
-      username, // set the username the user entered BEFORE connecting
-    };
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SERVER_URL}/api/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify({ username, password }),
+        }
+      );
 
-    // Connect socket (handshake now carries correct username + valid userId)
-    if (!socket.connected) {
-      socket.connect();
-    }
+      const data = await response.json();
 
-    socket.emit("login", { username, password }, (response: any) => {
-      setIsLoading(false);
-      if (response.success) {
+      if (data.success) {
         // Store user info in localStorage
-        localStorage.setItem("user", JSON.stringify(response.user));
-        onLoginSuccess(response.user);
+        localStorage.setItem("user", JSON.stringify(data.user));
+        onLoginSuccess(data.user);
       } else {
-        setError(response.error || "Invalid username or password");
-        // Disconnect socket if login failed
-        socket.disconnect();
+        setError(data.error || "Invalid username or password");
       }
-    });
+    } catch (err) {
+      setError("Failed to connect to server");
+      console.error("Login error:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

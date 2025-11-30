@@ -1,9 +1,7 @@
-import { useState, useEffect } from "react" ;
+import { useState, useEffect } from "react";
 import { Docs } from "./Docs";
-import socket from "../socket";
 import { Topbar } from "./Topbar";
 import { Dialogbox } from "./Dialogbox";
-  
 
 interface DocumentType {
     _id: string;
@@ -26,43 +24,57 @@ interface LandingPageProps {
 }
 
 export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
-    const [documents, setDocuments] = useState<DocumentType[]>([]) ;
+  const [documents, setDocuments] = useState<DocumentType[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
-    useEffect(() => {
-        socket.emit("get-all-documents") ;
-
-        const handleAllDocuments = (allDocuments: DocumentType[]) => {
-            setDocuments(allDocuments) ;
-        };
-
-        socket.on("all-documents", handleAllDocuments);
-        
-        return () => {
-            socket.off("all-documents", handleAllDocuments);
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch(
+          `${import.meta.env.VITE_SERVER_URL}/api/documents`,
+          {
+            credentials: "include",
+          }
+        );
+        const data = await response.json();
+        if (data.success) {
+          setDocuments(data.documents);
         }
-    }, []) ;
+      } catch (error) {
+        console.error("Failed to fetch documents:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-    return(
-        <div className="LandingPage">
-            <Topbar user={user} onLogout={onLogout} />
-            <div className="Docs-container-1">
-                <div className="title-1"> Start a new document </div>
-                <div> <Dialogbox /> </div>
-            </div>
+    fetchDocuments();
+  }, []);
 
-            {
-                (documents.length > 0) && (
-                <div className="Docs-container-2">
-                    <div className="title-2"> Recent documents </div>
-                    <div className="grid grid-cols-6">
-                    {
-                        documents?.map((docs, index) => 
-                            <Docs documentId={docs._id} docName={docs.name} key={index}/>
-                        )
-                    }
-                    </div>
-                </div>)
-            }
+  return (
+    <div className="LandingPage">
+      <Topbar user={user} onLogout={onLogout} />
+      <div className="Docs-container-1">
+        <div className="title-1"> Start a new document </div>
+        <div>
+          <Dialogbox />
         </div>
-    )
-}
+      </div>
+
+      {isLoading && (
+        <div className="text-center py-8">Loading documents...</div>
+      )}
+
+      {!isLoading && documents.length > 0 && (
+        <div className="Docs-container-2">
+          <div className="title-2"> Recent documents </div>
+          <div className="grid grid-cols-6">
+            {documents?.map((docs, index) => (
+              <Docs documentId={docs._id} docName={docs.name} key={index} />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

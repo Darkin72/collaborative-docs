@@ -1,109 +1,133 @@
-import { useState, useEffect, useCallback } from 'react';
-import Quill from 'quill';
-import 'quill/dist/quill.snow.css';
-import { TOOLBAR_OPTIONS, SAVE_INTERVAL_MS } from '../constants';
-import socket from '../socket';
-import { useParams } from 'react-router-dom';
+import { useEffect, useState, useCallback } from "react";
+import { useParams } from "react-router-dom";
+import Quill from "quill";
+import "quill/dist/quill.snow.css";
+import { TOOLBAR_OPTIONS, SAVE_INTERVAL_MS } from "../constants";
+import socket from "../socket";
 
 export const TextEditor = () => {
-    const [quill, setQuill] = useState<Quill>() ;
-    const { id: documentId } = useParams() ;
+  const { id: documentId } = useParams();
+  const [quill, setQuill] = useState<Quill>();
 
-    const wrapperRef = useCallback((wrapper: HTMLDivElement) => {
-        if(!wrapper) return ;
-        wrapper.innerHTML = '' ;
-    
-        const editor = document.createElement("div") ;
-        wrapper.append(editor) ;
+  const wrapperRef = useCallback((wrapper: HTMLDivElement) => {
+    if (!wrapper) return;
+    wrapper.innerHTML = "";
 
-        const qul = new Quill(editor, 
-            { 
-                theme: "snow", 
-                modules: {
-                toolbar: TOOLBAR_OPTIONS
-              }
-            });
-        qul.disable() ;   
-        qul.setText("Loading...") ;
-        setQuill(qul) ;
-    }, [])
+    const editor = document.createElement("div");
+    wrapper.append(editor);
 
-    // Sending changes to server.
-    useEffect(() => {
-        if(!quill){
-            return ;
+    const qul = new Quill(editor, {
+      theme: "snow",
+      modules: {
+        toolbar: TOOLBAR_OPTIONS,
+      },
+    });
+    qul.disable();
+    qul.setText("Loading...");
+    setQuill(qul);
+  }, []);
+
+  // Connect socket on mount, disconnect on unmount
+  useEffect(() => {
+    if (!socket.connected) {
+      const userStr = localStorage.getItem("user");
+      const socketUserId = localStorage.getItem("socket-user-id");
+
+      if (userStr && socketUserId) {
+        try {
+          const user = JSON.parse(userStr);
+          socket.auth = {
+            userId: socketUserId,
+            username: user.username,
+          };
+          socket.connect();
+        } catch (err) {
+          console.error("Failed to set socket auth:", err);
         }
+      }
+    }
 
-        // @ts-ignore
-        const handler = (delta, oldDelta, source) => {
-            if (source !== "user") return ;
-            socket.emit("send-changes", delta) ;
-        }
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
-        quill.on("text-change", handler) ;
+  // Load document
+  useEffect(() => {
+    if (!quill || !documentId) return;
 
-        return () => {
-            quill.off("text-change", handler) ;
-        }
+    const handleLoadDocument = (document: any) => {
+      quill.setContents(document);
+      quill.enable();
+    };
 
-    }, [quill])
+    const handleConnect = () => {
+      const documentName = localStorage.getItem(
+        `document-name-for-${documentId}`
+      );
+      socket.emit("get-document", {
+        documentId,
+        documentName: documentName ? documentName : "Untitled",
+      });
+    };
 
-    // Receiving changes from server.
-    useEffect(() => {
-        if(!quill){
-            return ;
-        }
+    socket.on("load-document", handleLoadDocument);
 
-        // @ts-ignore
-        const handler = (delta) => {
-            quill.updateContents(delta) ;
-        }
+    if (socket.connected) {
+      handleConnect();
+    } else {
+      socket.on("connect", handleConnect);
+    }
 
-        socket.on("receive-changes", handler) ;
+    return () => {
+      socket.off("load-document", handleLoadDocument);
+      socket.off("connect", handleConnect);
+    };
+  }, [quill, documentId]);
 
-        return () => {
-            socket.off("receive-changes", handler) ;
-        }
+  // Sending changes to server
+  useEffect(() => {
+    if (!quill) return;
 
-    }, [quill])
+    const handler = (delta: any, oldDelta: any, source: string) => {
+      if (source !== "user") return;
+      socket.emit("send-changes", delta);
+    };
 
-    useEffect(() => {
-        if(!quill){
-            return ;
-        }
+    quill.on("text-change", handler);
 
-        const handleLoadDocument = (document: any) => {
-            quill.setContents(document) ;
-            quill.enable() ;
-        };
+    return () => {
+      quill.off("text-change", handler);
+    };
+  }, [quill]);
 
-        socket.once("load-document", handleLoadDocument);
+  // Receiving changes from server
+  useEffect(() => {
+    if (!quill) return;
 
-        const documentName = localStorage.getItem(`document-name-for-${documentId}`) || "Untitled" ;
-        socket.emit("get-document", { documentId, documentName }) ;
+    const handler = (delta: any) => {
+      quill.updateContents(delta);
+    };
 
-        return () => {
-            socket.off("load-document", handleLoadDocument);
-        };
+    socket.on("receive-changes", handler);
 
-    }, [quill, documentId])
+    return () => {
+      socket.off("receive-changes", handler);
+    };
+  }, [quill]);
 
-    useEffect(() => {
-        if(!quill){
-            return ;
-        }
-        const interval = setInterval(() => {
-            socket.emit("save-document", quill.getContents()) ;
-        }, SAVE_INTERVAL_MS);
+  // Auto-save document
+  useEffect(() => {
+    if (!quill) return;
 
-        return () => {
-            clearInterval(interval) ;
-        }
-    }, [quill])
+    const interval = setInterval(() => {
+      socket.emit("save-document", quill.getContents());
+    }, SAVE_INTERVAL_MS);
 
-    return(
-        <div className="editorContainer" ref={wrapperRef}>
+    return () => {
+      clearInterval(interval);
+    };
+  }, [quill]);
 
-        </div>
-    )
-}
+  return <div className="editorContainer" ref={wrapperRef}></div>;
+};

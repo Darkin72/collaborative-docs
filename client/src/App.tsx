@@ -23,54 +23,50 @@ function App() {
       try {
         const storedUser = JSON.parse(userStr);
         setUser(storedUser);
-        // Connect socket for logged-in user
-        socket.auth = {
-          userId: localStorage.getItem("socket-user-id") || "",
-          username: storedUser.username,
-        };
-        socket.connect();
+        // DON'T connect socket here - only connect when opening a document
       } catch {
         localStorage.removeItem("user");
       }
     }
     setIsLoading(false);
-
-    // Listen for force logout from server (permanent disconnect)
-    const handleForceLogout = () => {
-      console.log("Session expired - logging out");
-      handleLogout();
-    };
-
-    socket.on("force-logout", handleForceLogout);
-
-    return () => {
-      socket.off("force-logout", handleForceLogout);
-    };
   }, []);
 
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
-    // Connect socket with new username
+    
+    // Ensure socket user ID exists
+    let socketUserId = localStorage.getItem("socket-user-id");
+    if (!socketUserId) {
+      socketUserId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+      localStorage.setItem("socket-user-id", socketUserId);
+    }
+    
+    // Set socket auth but DON'T connect yet - will connect when user opens a document
     socket.auth = {
-      userId: localStorage.getItem("socket-user-id") || "",
+      userId: socketUserId,
       username: loggedInUser.username,
     };
-    socket.connect();
   };
 
-  const handleLogout = () => {
-    // Emit logout event to server BEFORE disconnecting
-    socket.emit("user-logout");
-    
+  const handleLogout = async () => {
+    // Call logout API
+    try {
+      await fetch(`${import.meta.env.VITE_SERVER_URL}/api/logout`, {
+        method: "POST",
+        credentials: "include",
+      });
+    } catch (err) {
+      console.error("Logout API error:", err);
+    }
+
     setUser(null);
     localStorage.removeItem("user");
-    // Generate new socket user ID on logout
     localStorage.removeItem("socket-user-id");
-    
-    // Small delay to ensure logout event is sent
-    setTimeout(() => {
+
+    // Disconnect socket if connected
+    if (socket.connected) {
       socket.disconnect();
-    }, 100);
+    }
   };
 
   if (isLoading) {
