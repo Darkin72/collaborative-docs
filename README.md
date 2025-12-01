@@ -43,6 +43,11 @@ Những gì bạn cần để có thể chạy ứng dụng cục bộ:
    ```.env
    DATABASE_URL="mongodb://mongo-container:27017" 
    CLIENT_ORIGIN="http://localhost:5173"
+   
+   REDIS_HOST=redis
+   REDIS_PORT=6379 
+
+   PORT=3000
    ```
 
    - Trong folder `/client`, thêm file `.env`:
