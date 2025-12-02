@@ -1,54 +1,66 @@
 import { Server } from "socket.io";
-import mongoose from "mongoose";
 import dotenv from "dotenv";
+import express from "express";
+import cors from "cors";
+import { createServer } from "http";
+import { connectToDatabase } from "./config/database";
+import { initializeRedisAdapter } from "./config/redis";
+import authRoutes from "./routes/auth.routes";
+import documentsRoutes from "./routes/documents.routes";
+import { setupDocumentSocket } from "./sockets/documentSocket";
+
 dotenv.config();
-import {
-  getAllDocuments,
-  findOrCreateDocument,
-  updateDocument,
-} from "./controllers/documentController";
 
 const PORT = Number(process.env.PORT || 3000);
 
 /** Connect to MongoDB */
-mongoose
-  .connect(process.env.DATABASE_URL || "", { dbName: "Google-Docs" })
-  .then(() => {
-    console.log("Database connected.");
-  })
-  .catch((error) => {
-    console.log("DB connection failed. " + error);
-  });
+connectToDatabase();
 
-const io = new Server(PORT, {
+/** Express HTTP Server Setup */
+const app = express();
+app.use(
+  cors({
+    origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
+    credentials: true,
+  })
+);
+app.use(express.json());
+
+const httpServer = createServer(app);
+
+/** HTTP API Routes */
+app.use("/api", authRoutes);
+app.use("/api/documents", documentsRoutes);
+
+/** Socket.IO Server Setup */
+const io = new Server(httpServer, {
   cors: {
     origin: [
       process.env.CLIENT_ORIGIN || "http://localhost:5173",
       "https://ldquan-backend.iselab.info",
     ],
     methods: ["GET", "POST"],
+    credentials: true,
   },
 });
 
-io.on("connection", (socket) => {
-  socket.on("get-all-documents", async () => {
-    const allDocuments = await getAllDocuments();
-    allDocuments.reverse(); // To get most recent docs first.
-    socket.emit("all-documents", allDocuments);
-  });
+/** Initialize Redis adapter and Socket handlers */
+initializeRedisAdapter(io).then(() => {
+  console.log(`Socket.io server ready on port ${PORT}`);
+});
 
-  socket.on("get-document", async ({ documentId, documentName }) => {
-    socket.join(documentId);
-    const document = await findOrCreateDocument({ documentId, documentName });
+setupDocumentSocket(io);
 
-    if (document) socket.emit("load-document", document.data);
+/** Start HTTP server */
+httpServer.listen(PORT, () => {
+  console.log(`HTTP + Socket.IO server running on port ${PORT}`);
+});
 
-    socket.on("send-changes", (delta) => {
-      socket.broadcast.to(documentId).emit("receive-changes", delta);
-    });
-
-    socket.on("save-document", async (data) => {
-      await updateDocument(documentId, { data });
-    });
+/** Graceful shutdown */
+process.on("SIGTERM", async () => {
+  console.log("SIGTERM received, closing server gracefully");
+  httpServer.close(() => {
+    console.log("Server closed");
+    process.exit(0);
   });
 });
