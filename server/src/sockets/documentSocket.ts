@@ -4,6 +4,14 @@ import {
   updateDocument,
 } from "../controllers/documentController";
 
+// Batching configuration
+const BATCH_INTERVAL = 2000; // 2 seconds
+const documentBatches = new Map<string, {
+  data: any;
+  timer: NodeJS.Timeout | null;
+  lastUpdate: number;
+}>();
+
 export function setupDocumentSocket(io: Server) {
   io.on("connection", (socket: Socket) => {
     const currentClients = io.sockets.sockets.size;
@@ -39,8 +47,47 @@ export function setupDocumentSocket(io: Server) {
         socket.broadcast.to(documentId).emit("receive-changes", delta);
       });
 
+      // Batching implementation for save-document
       socket.on("save-document", async (data) => {
-        await updateDocument(documentId, { data });
+        const now = Date.now();
+        
+        // Get or create batch for this document
+        let batch = documentBatches.get(documentId);
+        
+        if (!batch) {
+          batch = {
+            data: null,
+            timer: null,
+            lastUpdate: now
+          };
+          documentBatches.set(documentId, batch);
+        }
+
+        // Update the data
+        batch.data = data;
+        batch.lastUpdate = now;
+
+        // Clear existing timer if any
+        if (batch.timer) {
+          clearTimeout(batch.timer);
+        }
+
+        // Set new timer to batch writes
+        batch.timer = setTimeout(async () => {
+          const batchToSave = documentBatches.get(documentId);
+          
+          if (batchToSave && batchToSave.data) {
+            try {
+              await updateDocument(documentId, { data: batchToSave.data });
+              console.log(`[BATCHING] Saved document ${documentId} (batched after ${BATCH_INTERVAL}ms)`);
+            } catch (error) {
+              console.error(`[BATCHING] Error saving document ${documentId}:`, error);
+            }
+          }
+          
+          // Clean up
+          documentBatches.delete(documentId);
+        }, BATCH_INTERVAL);
       });
     });
 
@@ -54,6 +101,21 @@ export function setupDocumentSocket(io: Server) {
             userId,
             username: displayUsername,
           });
+          
+          // Flush any pending batched writes for this document
+          const batch = documentBatches.get(room);
+          if (batch && batch.timer) {
+            clearTimeout(batch.timer);
+            
+            // Immediately save if there's data
+            if (batch.data) {
+              updateDocument(room, { data: batch.data })
+                .then(() => console.log(`[BATCHING] Flushed document ${room} on user disconnect`))
+                .catch(err => console.error(`[BATCHING] Error flushing document ${room}:`, err));
+            }
+            
+            documentBatches.delete(room);
+          }
         }
       }
     });
