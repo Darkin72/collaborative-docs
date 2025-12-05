@@ -8,6 +8,19 @@ services:
             - ./client/.env
         depends_on:
             - server
+        volumes:
+            - ./client/src:/app/src
+            - ./client/public:/app/public
+        develop:
+            watch:
+                - action: sync
+                  path: ./client/src
+                  target: /app/src
+                - action: sync
+                  path: ./client/public
+                  target: /app/public
+                - action: rebuild
+                  path: ./client/package.json
 
     server:
         build:
@@ -22,6 +35,15 @@ services:
         environment:
             - REDIS_HOST=redis
             - REDIS_PORT=6379
+        volumes:
+            - ./server/src:/app/src
+        develop:
+            watch:
+                - action: sync
+                  path: ./server/src
+                  target: /app/src
+                - action: rebuild
+                  path: ./server/package.json
 
     mongo:
         image: mongo
