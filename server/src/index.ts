@@ -56,7 +56,7 @@ httpServer.listen(PORT, () => {
   console.log(`HTTP + Socket.IO server running on port ${PORT}`);
 });
 
-/* Graceful shutdown */
+/** Graceful shutdown */
 process.on("SIGTERM", async () => {
   console.log("SIGTERM received, closing server gracefully");
   httpServer.close(() => {

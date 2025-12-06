@@ -86,3 +86,6 @@ Bây giờ ứng dụng sẽ chạy trên http://localhost:5173
 ## ▶️ Demo
 
 https://github.com/KshitijTodkar48/Google-Docs-Clone/assets/120639775/a7dc1200-3617-4214-b065-339a55eaad59
+
+## rebuild:
+sudo docker compose down --rmi all --volumes --remove-orphans && sudo docker compose up -d --build --force-recreate
