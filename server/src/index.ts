@@ -36,8 +36,7 @@ app.use("/api/documents", documentsRoutes);
 const io = new Server(httpServer, {
   cors: {
     origin: [
-      process.env.CLIENT_ORIGIN || "http://localhost:5173",
-      "https://ldquan-backend.iselab.info",
+      process.env.CLIENT_ORIGIN || "http://localhost:5173"
     ],
     methods: ["GET", "POST"],
     credentials: true,

@@ -25,13 +25,11 @@ ENV NODE_ENV=production
 # mặc định BE lắng nghe PORT 3000 nếu không set
 ENV PORT=3000
 
-# copy chỉ thứ cần thiết: built files (nếu có) và production deps
-COPY --from=builder /app ./
+# copy với --chown để set ownership ngay lúc copy (tránh chown -R chậm)
+COPY --chown=appuser:appgroup --from=builder /app ./
 # nếu bạn muốn tiết kiệm dung lượng: xóa devDependencies nếu có
 RUN npm prune --production || true
 
-# set quyền
-RUN chown -R appuser:appgroup /app
 USER appuser
 
 # container port (khuyến nghị 3000)

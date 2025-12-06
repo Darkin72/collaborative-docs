@@ -1,91 +1,164 @@
+# 📝 Collaborative Docs
+
+Ứng dụng chỉnh sửa tài liệu cộng tác theo thời gian thực, tương tự Google Docs.
+
+🌐 **Live Demo:** [https://colnote.iselab.info](https://colnote.iselab.info)
+
 ## ⭐ Giới thiệu
- Dự án này là một bản sao của 'Google Docs', được thiết kế để cung cấp trải nghiệm chỉnh sửa tài liệu cộng tác tương tự như Google Docs. Nó cho phép nhiều người dùng tạo, chỉnh sửa và cộng tác trên tài liệu theo thời gian thực.
+
+Dự án cho phép nhiều người dùng cùng tạo, chỉnh sửa và cộng tác trên tài liệu theo thời gian thực. Các thay đổi được đồng bộ ngay lập tức giữa tất cả người tham gia.
 
 ## 🟢 Tính năng
 
-- **Tạo và lưu trữ tài liệu:** Người dùng có thể tạo tài liệu mới và lưu trữ chúng an toàn trong cơ sở dữ liệu.
-- **Chỉnh sửa tài liệu theo thời gian thực:** Nhiều người dùng có thể cộng tác và chỉnh sửa cùng một tài liệu đồng thời, với các thay đổi được phản ánh ngay lập tức cho tất cả các bên tham gia.
-- **Đồng bộ hóa thời gian thực:** Các thay đổi được thực hiện bởi những người dùng khác nhau sẽ tự động được đồng bộ hóa trên tất cả các máy khách được kết nối, đảm bảo sự cộng tác liền mạch.
-- **Chỉnh sửa văn bản phong phú:** Trình chỉnh sửa văn bản Quill cung cấp trải nghiệm chỉnh sửa phong phú, cho phép người dùng định dạng văn bản, thêm hình ảnh và nhiều hơn nữa.
+| Tính năng | Mô tả |
+|-----------|-------|
+| 📄 **Quản lý tài liệu** | Tạo, lưu trữ và quản lý tài liệu |
+| ✏️ **Chỉnh sửa thời gian thực** | Nhiều người cùng chỉnh sửa, thay đổi hiển thị ngay lập tức |
+| 🔄 **Đồng bộ hóa** | Tự động đồng bộ qua Socket.IO + Redis Pub/Sub |
+| 🎨 **Rich Text Editor** | Quill editor với định dạng văn bản phong phú |
+| 🔐 **Xác thực người dùng** | Đăng nhập/Đăng ký |
 
-## 🦾 Cải tiến
+## 🏗️ Kiến trúc hệ thống
 
-- [ ] Thêm auth (Đăng nhập / Đăng ký người dùng)
-- [ ] Cài đặt kiến trúc Pub/Sub
-- [ ] Dùng redis để cache, giảm độ trễ
-- [ ] Rate litmit để giới hạn người dùng thực hiện CRUD
-- [ ] Batching, gộm update theo các quãng thời gian ngắn
-- ... còn nữa
-
-## TODO
-- [ ] Cài đặt các cải tiến
-- [ ] Chạy và đánh giá hiệu quả *trước* và *sau* khi cải tiến
-
-## 🟡 Yêu cầu
-
-Những gì bạn cần để có thể chạy ứng dụng cục bộ:
-
-- Node.js (Phiên bản: >=18.x)
-- MongoDB
-- npm 
-
-## 🐋 Cài đặt (với Docker):
-1. Clone repo
-
-   ```sh
-   git clone https://github.com/lephantriduc/collaborative-docs
-   ```
-
-2. Thiết lập các biến môi trường:
-   Thêm các biến môi trường:
-   - Trong folder `/server`, thêm file `.env`:
-
-   ```.env
-   DATABASE_URL="mongodb://mongo-container:27017" 
-   CLIENT_ORIGIN="http://localhost:5173"
-   
-   REDIS_HOST=redis
-   REDIS_PORT=6379 
-
-   PORT=3000
-   ```
-
-   - Trong folder `/client`, thêm file `.env`:
-   ```.env
-   VITE_SERVER_URL="http://localhost:3000"
-   ``` 
-     
-
-3. Chạy lệnh sau trong folder gốc: 
-    ```sh
-    docker-compose up
-    ```
-
-Bây giờ ứng dụng sẽ chạy trên http://localhost:5173
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Client    │────▶│   Nginx     │────▶│   Server    │
+│  (React)    │◀────│  (Reverse   │◀────│  (Node.js)  │
+│  Port 80    │     │   Proxy)    │     │  Port 3000  │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                         ┌─────────────────────┼─────────────────────┐
+                         │                     │                     │
+                         ▼                     ▼                     ▼
+                  ┌─────────────┐       ┌─────────────┐       ┌─────────────┐
+                  │   MongoDB   │       │    Redis    │       │   Redis     │
+                  │  (Storage)  │       │   (Cache)   │       │  (Pub/Sub)  │
+                  └─────────────┘       └─────────────┘       └─────────────┘
+```
 
 ## 🔧 Công nghệ sử dụng
 
-- **Frontend:**
-  - React.js
-  - Quill
-  - shadcn/ui
-  - TailwindCSS
+| Layer | Công nghệ |
+|-------|-----------|
+| **Frontend** | React.js, TypeScript, Quill, TailwindCSS, shadcn/ui |
+| **Backend** | Node.js, Express, Socket.IO, TypeScript |
+| **Database** | MongoDB |
+| **Cache/Pub-Sub** | Redis |
+| **DevOps** | Docker, Docker Compose, Nginx, Certbot (SSL) |
 
-- **Backend:**
-  - Node.js
-  - Socket.io
+## 🚀 Cài đặt
 
-- **DB:**
-  - MongoDB
+### Yêu cầu
+- Docker & Docker Compose
+- (Tùy chọn) Node.js >= 20.x để phát triển local
 
-- **Khác:**
-  - TypeScript
-  - Docker
+### Bước 1: Clone repo
+
+```bash
+git clone https://github.com/lephantriduc/collaborative-docs
+cd collaborative-docs
+```
+
+### Bước 2: Cấu hình môi trường
+
+**Server** (`/server/.env`):
+```env
+DATABASE_URL=mongodb://mongo:27017/mydb
+REDIS_HOST=redis
+REDIS_PORT=6379
+PORT=3000
+CLIENT_ORIGIN=https://colnote.iselab.info
+```
+
+**Client** (`/client/.env`):
+```env
+VITE_SERVER_URL=https://colnote.iselab.info
+```
+
+### Bước 3: Chạy ứng dụng
+
+```bash
+# Development
+docker compose up -d --build
+
+# Xem logs
+docker compose logs -f
+```
+
+Truy cập: http://localhost:12354
+
+### Production (với HTTPS)
+
+Cập nhật `.env` files:
+
+**Server** (`/server/.env`):
+```env
+CLIENT_ORIGIN=https://your-domain.com
+```
+
+**Client** (`/client/.env`):
+```env
+VITE_SERVER_URL=https://your-domain.com
+```
 
 
-## ▶️ Demo
+## 📊 Load Testing
 
-https://github.com/KshitijTodkar48/Google-Docs-Clone/assets/120639775/a7dc1200-3617-4214-b065-339a55eaad59
+Xem hướng dẫn chi tiết tại [`/load-testing/README.md`](./load-testing/README.md)
 
-## rebuild:
-sudo docker compose down --rmi all --volumes --remove-orphans && sudo docker compose up -d --build --force-recreate
+```bash
+cd load-testing
+npm install
+
+# Quick smoke test
+npm run test:smoke
+
+# Full baseline test
+npm run test:baseline
+```
+
+## 🐳 Docker Commands
+
+```bash
+# Build và chạy
+docker compose up -d --build
+
+# Rebuild hoàn toàn (xóa cache, volumes)
+docker compose down --rmi all --volumes --remove-orphans
+docker compose up -d --build --force-recreate
+
+# Xem logs
+docker compose logs -f server
+docker compose logs -f client
+
+# Restart service
+docker compose restart server
+```
+
+## 📁 Cấu trúc thư mục
+
+```
+collaborative-docs/
+├── client/                 # React frontend
+│   ├── src/
+│   │   ├── components/     # UI components
+│   │   ├── lib/            # Utilities
+│   │   └── socket.ts       # Socket.IO client
+│   └── Dockerfile
+├── server/                 # Node.js backend
+│   ├── src/
+│   │   ├── config/         # Database & Redis config
+│   │   ├── controllers/    # Request handlers
+│   │   ├── models/         # MongoDB models
+│   │   ├── routes/         # API routes
+│   │   └── sockets/        # Socket.IO handlers
+│   └── Dockerfile
+├── load-testing/           # Artillery load tests
+│   └── scenarios/
+├── docker-compose.yml
+└── README.md
+```
+
+## 📄 License
+
+MIT License
