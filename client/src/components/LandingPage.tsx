@@ -10,6 +10,9 @@ interface DocumentType {
         ops: any[];
     };
     __v: number;
+    userRole?: string;
+    ownerName?: string;
+    ownerId?: string;
 }
 
 interface User {
@@ -32,7 +35,7 @@ export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
       setIsLoading(true);
       try {
         const response = await fetch(
-          `${import.meta.env.VITE_SERVER_URL}/api/documents`,
+          `${import.meta.env.VITE_SERVER_URL}/api/documents?userId=${user.id}`,
           {
             credentials: "include",
           }
@@ -49,7 +52,7 @@ export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
     };
 
     fetchDocuments();
-  }, []);
+  }, [user.id]);
 
   return (
     <div className="LandingPage">
@@ -70,7 +73,12 @@ export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
           <div className="title-2"> Recent documents </div>
           <div className="grid grid-cols-6">
             {documents?.map((docs, index) => (
-              <Docs documentId={docs._id} docName={docs.name} key={index} />
+              <Docs 
+                documentId={docs._id} 
+                docName={docs.name} 
+                ownerName={docs.ownerName} 
+                key={index} 
+              />
             ))}
           </div>
         </div>

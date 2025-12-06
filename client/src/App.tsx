@@ -23,6 +23,8 @@ function App() {
       try {
         const storedUser = JSON.parse(userStr);
         setUser(storedUser);
+        // Store the user ID for socket auth
+        localStorage.setItem("socket-user-id", storedUser.id);
         // DON'T connect socket here - only connect when opening a document
       } catch {
         localStorage.removeItem("user");
@@ -34,16 +36,12 @@ function App() {
   const handleLoginSuccess = (loggedInUser: User) => {
     setUser(loggedInUser);
     
-    // Ensure socket user ID exists
-    let socketUserId = localStorage.getItem("socket-user-id");
-    if (!socketUserId) {
-      socketUserId = `user-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-      localStorage.setItem("socket-user-id", socketUserId);
-    }
+    // Use the actual user ID from the account
+    localStorage.setItem("socket-user-id", loggedInUser.id);
     
     // Set socket auth but DON'T connect yet - will connect when user opens a document
     socket.auth = {
-      userId: socketUserId,
+      userId: loggedInUser.id,
       username: loggedInUser.username,
     };
   };
