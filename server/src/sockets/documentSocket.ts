@@ -4,6 +4,7 @@ import {
   updateDocument,
 } from "../controllers/documentController";
 import { checkDocumentPermission } from "../middleware/permissions";
+import { createEventRateLimiter } from "../middleware/socketRateLimiter";
 
 // Batching configuration
 const BATCH_INTERVAL = 2000; // 2 seconds
@@ -19,6 +20,9 @@ export function setupDocumentSocket(io: Server) {
     const userId = socket.handshake.auth.userId as string;
     const username = socket.handshake.auth.username as string;
 
+    // Create rate limiter for this socket's events
+    const rateLimitEvent = createEventRateLimiter(socket);
+
     console.log(`[SOCKET] Connection attempt - userId: ${userId}, username: ${username}, type: ${typeof userId}`);
 
     if (!userId) {
@@ -33,7 +37,7 @@ export function setupDocumentSocket(io: Server) {
       `User connected: ${displayUsername} (userId: ${userId}) (current # of channels: ${currentClients})`,
     );
 
-    socket.on("get-document", async ({ documentId, documentName }) => {
+    socket.on("get-document", rateLimitEvent("get-document", async ({ documentId, documentName }) => {
       console.log(`[SOCKET] get-document: userId=${userId}, documentId=${documentId}`);
       try {
         // Try to find or create the document first
@@ -64,7 +68,7 @@ export function setupDocumentSocket(io: Server) {
         socket.removeAllListeners("send-changes");
         socket.removeAllListeners("save-document");
 
-        socket.on("send-changes", (delta) => {
+        socket.on("send-changes", rateLimitEvent("send-changes", (delta) => {
           // Only users with edit permission can send changes
           if (document.canEdit) {
             socket.broadcast.to(documentId).emit("receive-changes", delta);
@@ -73,10 +77,10 @@ export function setupDocumentSocket(io: Server) {
               error: "You do not have permission to edit this document"
             });
           }
-        });
+        }));
 
         // Batching implementation for save-document
-        socket.on("save-document", async (data) => {
+        socket.on("save-document", rateLimitEvent("save-document", async (data) => {
           // Only users with edit permission can save
           if (!document.canEdit) {
             socket.emit("permission-error", {
@@ -127,14 +131,14 @@ export function setupDocumentSocket(io: Server) {
             // Clean up
             documentBatches.delete(documentId);
           }, BATCH_INTERVAL);
-        });
+        }));
       } catch (error: any) {
         console.error(`Error loading document ${documentId}:`, error);
         socket.emit("access-denied", {
           error: error.message || "Failed to load document"
         });
       }
-    });
+    }));
 
     socket.on("disconnecting", () => {
       for (const room of socket.rooms) {

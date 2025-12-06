@@ -1,10 +1,17 @@
-import { createClient } from "redis";
+import { createClient, RedisClientType } from "redis";
 import { createAdapter } from "@socket.io/redis-adapter";
 import { Server } from "socket.io";
 
 const REDIS_HOST = process.env.REDIS_HOST || "localhost";
 const REDIS_PORT = Number(process.env.REDIS_PORT || 6379);
 const REDIS_PASSWORD = process.env.REDIS_PASSWORD || undefined;
+
+// Export Redis client for use in other modules (e.g., rate limiting)
+let sharedRedisClient: RedisClientType | null = null;
+
+export function getRedisClient(): RedisClientType | null {
+  return sharedRedisClient;
+}
 
 export async function initializeRedisAdapter(io: Server) {
   try {
@@ -24,6 +31,9 @@ export async function initializeRedisAdapter(io: Server) {
 
     await Promise.all([pubClient.connect(), subClient.connect()]);
     console.log("Redis clients connected successfully");
+
+    // Store shared client for use in other modules
+    sharedRedisClient = pubClient as RedisClientType;
 
     io.adapter(createAdapter(pubClient, subClient));
     console.log("Socket.io Redis Pub/Sub adapter initialized");
