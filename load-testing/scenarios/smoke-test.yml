@@ -1,0 +1,44 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 10  # Chỉ 10 giây
+      arrivalRate: 1  # 1 user mỗi giây = total 10 users
+      name: "Quick Smoke Test"
+  engines:
+    socketio:
+      transports: ["websocket"]
+
+scenarios:
+  - name: "Simple Document Edit Test"
+    engine: socketio
+    flow:
+      # 1. Connect
+      - emit:
+          channel: "connection"
+      
+      # 2. Join document
+      - emit:
+          channel: "get-document"
+          data:
+            documentId: "smoke-test-doc"
+            documentName: "Smoke Test Document"
+      
+      # 3. Wait for load
+      - think: 1
+      
+      # 4. Send just 5 changes
+      - loop:
+          - emit:
+              channel: "send-changes"
+              data:
+                ops:
+                  - insert: "x"
+          - think: 0.5
+        count: 5
+      
+      # 5. Save
+      - emit:
+          channel: "save-document"
+          data: "xxxxx"
+      
+      - think: 1

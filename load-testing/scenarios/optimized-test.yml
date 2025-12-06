@@ -1,0 +1,45 @@
+config:
+  target: "http://localhost:3000"
+  phases:
+    - duration: 120  # 2 phút
+      arrivalRate: 5  # 5 users mới mỗi giây → ~600 total users
+      name: "Baseline Performance Test"
+  engines:
+    socketio:
+      transports: ["websocket"]
+
+scenarios:
+  - name: "Collaborative Document Editing"
+    engine: socketio
+    flow:
+      # 1. Connect to Socket.io
+      - emit:
+          channel: "connection"
+      
+      # 2. Join document
+      - emit:
+          channel: "get-document"
+          data:
+            documentId: "baseline-test-doc-{{ $randomNumber(1, 10) }}"
+            documentName: "Baseline Test Document {{ $randomNumber(1, 10) }}"
+      
+      # 3. Wait for document to load
+      - think: 1
+      
+      # 4. Simulate typing - send changes every 200ms (5 chars/sec)
+      - loop:
+          - emit:
+              channel: "send-changes"
+              data:
+                ops:
+                  - insert: "a"
+          - think: 0.2  # 200ms between keystrokes
+        count: 50  # Total 50 keystrokes = 10 seconds of typing
+      
+      # 5. Save document
+      - emit:
+          channel: "save-document"
+          data: "Test content after 50 keystrokes"
+      
+      # 6. Wait a bit before disconnecting
+      - think: 2

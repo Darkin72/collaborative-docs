@@ -1,0 +1,4 @@
+# Reports folder
+*.json
+*.html
+!.gitkeep

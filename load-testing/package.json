@@ -1,0 +1,16 @@
+{
+  "name": "collaborative-docs-load-testing",
+  "version": "1.0.0",
+  "description": "Load testing for collaborative docs application",
+  "scripts": {
+    "test:baseline": "artillery run scenarios/baseline-test.yml --output reports/baseline-report.json",
+    "test:optimized": "artillery run scenarios/optimized-test.yml --output reports/optimized-report.json",
+    "test:stress": "artillery run scenarios/stress-test.yml --output reports/stress-report.json",
+    "report:baseline": "artillery report reports/baseline-report.json",
+    "report:optimized": "artillery report reports/optimized-report.json",
+    "report:all": "npm run report:baseline && npm run report:optimized"
+  },
+  "dependencies": {
+    "artillery": "^2.0.0"
+  }
+}
