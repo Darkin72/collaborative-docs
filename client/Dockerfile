@@ -15,8 +15,8 @@ RUN npm run build
 
 # 2) Production stage: lightweight static server
 FROM node:20-alpine AS production
-# cài http-server toàn cục (nhẹ)
-RUN npm install -g http-server
+# cài serve (hỗ trợ SPA tốt hơn http-server)
+RUN npm install -g serve
 
 # tạo user không phải root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
@@ -32,5 +32,5 @@ USER appuser
 # serve trên port 80 trong container
 EXPOSE 80
 
-# cmd: serve static trên port 80
-CMD ["http-server", "/app", "-p", "80", "-c-1"]
+# cmd: serve static với SPA mode (-s = single page app)
+CMD ["serve", "-s", "/app", "-l", "80"]
