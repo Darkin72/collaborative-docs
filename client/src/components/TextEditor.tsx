@@ -89,7 +89,7 @@ export const TextEditor = () => {
   useEffect(() => {
     if (!quill) return;
 
-    const handler = (delta: any, oldDelta: any, source: string) => {
+    const handler = (delta: any, source: string) => {
       if (source !== "user") return;
       socket.emit("send-changes", delta);
     };

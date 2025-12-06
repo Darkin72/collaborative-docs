@@ -1,53 +1,91 @@
+version: "3.9"
+
 services:
-    client:
-        build:
-            context: ./client
-        ports:
-            - "5173:5173"
-        env_file:
-            - ./client/.env
-        depends_on:
-            - server
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    image: myapp-client:1.0
+    ports:
+      - "12354:80"      
+    env_file:
+      - ./client/.env
+    depends_on:
+      - server
+    networks:
+      - public_net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-    server:
-        build:
-            context: ./server
-        ports:
-            - "3000:3000"
-        env_file:
-            - ./server/.env
-        depends_on:
-            - mongo
-            - redis
-        environment:
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: myapp-server:1.0
+    ports:
+      - "12345:3000"           
+    env_file:
+      - ./server/.env
+    depends_on:
+      - mongo
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - public_net
+      - internal_net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
-    mongo:
-        image: mongo
-        container_name: mongo-container
-        ports:
-            - "27017:27017"
-        volumes:
-            - mongo-data:/data/db
-        command: ["mongod", "--logpath", "/dev/null"]
+  mongo:
+    image: mongo:6
+    volumes:
+      - mongo-data:/data/db
+    expose:
+      - "27017"                 # internal only
+    command: ["mongod", "--bind_ip_all"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.runCommand({ ping: 1 })"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal_net
 
-    redis:
-        image: redis:7-alpine
-        container_name: redis-container
-        ports:
-            - "6379:6379"
-        volumes:
-            - redis-data:/data
-        command: redis-server --appendonly yes
-        healthcheck:
-            test: ["CMD", "redis-cli", "ping"]
-            interval: 10s
-            timeout: 5s
-            retries: 5
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis-data:/data
+    expose:
+      - "6379"                  # internal only
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal_net
 
 volumes:
-    mongo-data:
-        driver: local
-    redis-data:
-        driver: local
+  mongo-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  public_net:
+    driver: bridge
+  internal_net:
+    driver: bridge
