@@ -18,9 +18,28 @@ export const Docs = ({
     return(
         <div className="docs" onClick={() => {openDoc(documentId); }}>
             <img src={Img1} alt="icon"/>
-            <div> {docName} </div>
+            <div style={{
+                width: '100%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                padding: '0 12px',
+                fontWeight: '500',
+                fontSize: '14px'
+            }}>
+                {docName}
+            </div>
             {ownerName && (
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
+                <div style={{
+                    fontSize: '11px',
+                    color: '#6b7280',
+                    marginTop: '4px',
+                    width: '100%',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    padding: '0 12px'
+                }}>
                     by {ownerName}
                 </div>
             )}

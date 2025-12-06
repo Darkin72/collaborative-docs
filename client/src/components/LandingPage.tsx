@@ -71,7 +71,7 @@ export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
       {!isLoading && documents.length > 0 && (
         <div className="Docs-container-2">
           <div className="title-2"> Recent documents </div>
-          <div className="grid grid-cols-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {documents?.map((docs, index) => (
               <Docs 
                 documentId={docs._id} 
