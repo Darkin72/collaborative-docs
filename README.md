@@ -154,11 +154,35 @@ collaborative-docs/
 │   │   ├── routes/         # API routes
 │   │   └── sockets/        # Socket.IO handlers
 │   └── Dockerfile
+├── unit_test/              # Unit & Integration tests
+│   ├── documentController.test.ts
+│   └── documentRoutes.test.ts
 ├── load-testing/           # Artillery load tests
 │   └── scenarios/
 ├── docker-compose.yml
 └── README.md
 ```
+
+## 🧪 Testing
+
+Dự án bao gồm Unit Test và Integration Test cho phần Backend.
+
+### Cài đặt & Chạy test
+
+1. Di chuyển vào thư mục server:
+   ```bash
+   cd server
+   ```
+
+2. Cài đặt dependencies (nếu chưa có):
+   ```bash
+   npm install
+   ```
+
+3. Chạy test:
+   ```bash
+   npx jest --config ../unit_test/jest.config.js
+   ```
 
 ## 📄 License
 
