@@ -19,6 +19,7 @@ import {
   setSocketRateLimitRedisClient,
   startRateLimitCleanup 
 } from "./middleware/socketRateLimiter";
+import { getCacheStats, isRedisAvailable } from "./config/documentCache";
 
 dotenv.config();
 
@@ -43,6 +44,16 @@ app.use(generalRateLimiter);
 /** Health check endpoint (not rate limited) */
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
+/** Cache stats endpoint for monitoring */
+app.get("/cache-stats", (req, res) => {
+  const stats = getCacheStats();
+  res.status(200).json({ 
+    ...stats, 
+    redisAvailable: isRedisAvailable(),
+    timestamp: new Date().toISOString() 
+  });
 });
 
 const httpServer = createServer(app);

@@ -5,6 +5,7 @@ import {
 } from "../controllers/documentController";
 import { checkDocumentPermission } from "../middleware/permissions";
 import { createEventRateLimiter } from "../middleware/socketRateLimiter";
+import { extendDocumentCacheTTL, updateDocumentDataInCache } from "../config/documentCache";
 
 // Batching configuration
 const BATCH_INTERVAL = 2000; // 2 seconds
@@ -58,6 +59,9 @@ export function setupDocumentSocket(io: Server) {
         console.log(
           `User ${displayUsername} subscribed to document ${documentName} (document id: ${documentId}) with role: ${document.userRole}`,
         );
+
+        // Extend cache TTL since document is being actively viewed
+        extendDocumentCacheTTL(documentId);
 
         socket.emit("load-document", {
           data: document.data,

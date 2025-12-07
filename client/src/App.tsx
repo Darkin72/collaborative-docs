@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { TextEditor } from "./components/TextEditor";
 import { Login } from "./components/Login";
 import { LandingPage } from "./components/LandingPage";
+import { ThemeProvider } from "./context/ThemeContext";
 import socket from "./socket";
 
 interface User {
@@ -76,31 +77,33 @@ function App() {
   }
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/login"
-          element={
-            user ? (
-              <Navigate to="/" />
-            ) : (
-              <Login onLoginSuccess={handleLoginSuccess} />
-            )
-          }
-        />
-        <Route
-          path="/*"
-          element={
-            user ? (
-              <LandingPage user={user} onLogout={handleLogout} />
-            ) : (
-              <Navigate to="/login" />
-            )
-          }
-        />
-        <Route path="/documents/:id" element={<TextEditor />} />
-      </Routes>
-    </BrowserRouter>
+    <ThemeProvider defaultTheme="system">
+      <BrowserRouter>
+        <Routes>
+          <Route
+            path="/login"
+            element={
+              user ? (
+                <Navigate to="/" />
+              ) : (
+                <Login onLoginSuccess={handleLoginSuccess} />
+              )
+            }
+          />
+          <Route
+            path="/*"
+            element={
+              user ? (
+                <LandingPage user={user} onLogout={handleLogout} />
+              ) : (
+                <Navigate to="/login" />
+              )
+            }
+          />
+          <Route path="/documents/:id" element={<TextEditor />} />
+        </Routes>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }
 

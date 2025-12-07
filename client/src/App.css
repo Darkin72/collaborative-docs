@@ -2,6 +2,10 @@
   background-color: #F3F3F3;
 }
 
+.dark .editorContainer {
+  background-color: #1a1a2e;
+}
+
 .editorContainer .ql-editor {
   /* A4 size */
   width: 21cm;
@@ -11,6 +15,11 @@
   box-shadow: 0 0 5px 0 rgba(0,0,0,.5);
   background-color: white;
   border-radius: 5px;
+}
+
+.dark .editorContainer .ql-editor {
+  background-color: #16213e;
+  color: #e2e8f0;
 }
 
 .editorContainer .ql-container.ql-snow {
@@ -29,6 +38,33 @@
   background-color: #F3F3F3;
   border-top:2px solid rgb(203, 199, 199);
   box-shadow:  0 0 5px 0 rgba(0,0,0,.5);
+}
+
+.dark .editorContainer .ql-toolbar.ql-snow {
+  background-color: #1a1a2e;
+  border-top-color: #374151;
+}
+
+.dark .editorContainer .ql-toolbar.ql-snow .ql-stroke {
+  stroke: #e2e8f0;
+}
+
+.dark .editorContainer .ql-toolbar.ql-snow .ql-fill {
+  fill: #e2e8f0;
+}
+
+.dark .editorContainer .ql-toolbar.ql-snow .ql-picker-label {
+  color: #e2e8f0;
+}
+
+.dark .editorContainer .ql-toolbar.ql-snow button:hover .ql-stroke,
+.dark .editorContainer .ql-toolbar.ql-snow .ql-picker-label:hover .ql-stroke {
+  stroke: #60a5fa;
+}
+
+.dark .editorContainer .ql-toolbar.ql-snow button:hover .ql-fill,
+.dark .editorContainer .ql-toolbar.ql-snow .ql-picker-label:hover .ql-fill {
+  fill: #60a5fa;
 }
 
 @page {
@@ -58,12 +94,22 @@
   background-color: white;
   display: flex;
   flex-direction: column;
+  min-height: 100vh;
+}
+
+.dark .LandingPage {
+  background-color: hsl(222.2 84% 4.9%);
 }
 
 .title-1 {
   font-size: 18px;
   padding: 4px 0;
   margin-bottom: 10px;
+  color: inherit;
+}
+
+.dark .title-1 {
+  color: #e2e8f0;
 }
 
 .title-2 {
@@ -71,33 +117,52 @@
   padding: 4px 0;
   margin-bottom: 8px;
   margin-left: 5px;
+  color: inherit;
+}
+
+.dark .title-2 {
+  color: #e2e8f0;
 }
 
 .docs {
   border: 1px solid rgb(212, 212, 212);
   background-color: white;
-  height: 260px;
-  width: 190px;
+  height: 280px;
+  width: 200px;
   margin: 5px;
-  border-radius: 5px;
+  border-radius: 8px;
   text-align: center;
   cursor: pointer;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  padding: 10px;
+  padding: 12px;
   box-sizing: border-box;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.dark .docs {
+  background-color: #1e293b;
+  border-color: #374151;
+  color: #e2e8f0;
 }
 
 .docs:hover {
   border-color: rgb(10, 136, 209);
 }
 
+.dark .docs:hover {
+  border-color: #60a5fa;
+}
+
 .docs > img {
-  height: 85%;
-  width: 80%;
-  padding: 10px 0 10px 0;
+  height: 160px;
+  width: auto;
+  max-width: 80%;
+  object-fit: contain;
+  padding: 10px 0;
+  flex-shrink: 0;
 }
 
 .newdocs {
@@ -110,6 +175,45 @@
   height: 90%;
   width: 80%;
   padding: 15px 0 10px 0;
+}
+
+.doc-info {
+  width: 100%;
+  border-top: 1px solid rgb(212, 212, 212);
+  padding: 8px 4px;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+
+.dark .doc-info {
+  border-top-color: #374151;
+}
+
+.doc-name {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  max-height: 2.6em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  word-break: break-word;
+  color: inherit;
+}
+
+.doc-owner {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .doc-owner {
+  color: #9ca3af;
 }
 
 .docs > div {
@@ -126,6 +230,10 @@
   padding: 15px 20px 20px 100px;
 }
 
+.dark .Docs-container-1 {
+  background-color: #1a1a2e;
+}
+
 .Docs-container-2 {
   padding: 15px 20px 20px 95px;
 }
@@ -140,6 +248,12 @@
   gap: 330px;
   align-items: center;
   padding: 3px 0 2px 0;
+  background-color: white;
+  transition: background-color 0.2s;
+}
+
+.dark .Topbar {
+  background-color: hsl(222.2 84% 4.9%);
 }
 
 .logodiv{
@@ -152,6 +266,10 @@
   margin: 5px;
   margin-left: 50px;
   color: rgb(103, 103, 103);
+}
+
+.dark .logodiv {
+  color: #94a3b8;
 }
 
 .logodiv > img {
@@ -167,6 +285,13 @@
   justify-content: center;
   align-items: center;
   gap: 15px;
+  background-color: white;
+  transition: background-color 0.2s;
+}
+
+.dark .Searchbar {
+  background-color: #1e293b;
+  box-shadow: rgba(0, 0, 0, 0.3) 0px 0px 0.25em, rgba(0, 0, 0, 0.1) 0px 0.25em 1em;
 }
 
 .Searchbar > img {
@@ -178,6 +303,16 @@
   height: 30px;
   width: 500px;
   font-size: 16px;
+  background-color: transparent;
+  color: inherit;
+}
+
+.dark .Searchbar > input {
+  color: #e2e8f0;
+}
+
+.dark .Searchbar > input::placeholder {
+  color: #94a3b8;
 }
 
 *:focus {

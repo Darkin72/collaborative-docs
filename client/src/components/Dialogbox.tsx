@@ -27,7 +27,7 @@ export function Dialogbox() {
       createDoc(id) ;
     }
   return (
-    <div className="border p-2 bg-white border-gray-300 h-[200px] w-[160px] rounded-md hover:border-blue-600">
+    <div className="border p-2 bg-white dark:bg-card border-gray-300 dark:border-border h-[200px] w-[160px] rounded-md hover:border-blue-600 dark:hover:border-blue-400 transition-colors">
         <Dialog>
         <DialogTrigger asChild>
           <img

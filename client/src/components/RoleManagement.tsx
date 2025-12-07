@@ -113,83 +113,41 @@ export const RoleManagement = ({ currentUser, isOwner }: RoleManagementProps) =>
   };
 
   return (
-    <div style={{ padding: "16px" }}>
+    <div className="p-4">
       <button
         onClick={() => setShowModal(true)}
-        style={{
-          background: "#3b82f6",
-          color: "white",
-          padding: "8px 16px",
-          borderRadius: "6px",
-          border: "none",
-          cursor: "pointer",
-          fontWeight: "500",
-        }}
+        className="bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition-colors"
       >
         Manage Access
       </button>
 
       {showModal && (
         <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
+          className="fixed inset-0 bg-black/50 dark:bg-black/70 flex items-center justify-center z-[1000]"
           onClick={() => setShowModal(false)}
         >
           <div
-            style={{
-              background: "white",
-              padding: "24px",
-              borderRadius: "8px",
-              width: "90%",
-              maxWidth: "500px",
-            }}
+            className="bg-white dark:bg-card p-6 rounded-lg w-[90%] max-w-[500px] dark:border dark:border-border"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 style={{ marginTop: 0, marginBottom: "20px", fontSize: "20px", fontWeight: "600" }}>
+            <h2 className="mt-0 mb-5 text-xl font-semibold text-foreground">
               Manage Document Access
             </h2>
 
             {/* Current Permissions List */}
             {permissions.length > 0 && (
-              <div style={{
-                marginBottom: "20px",
-                padding: "12px",
-                background: "#f9fafb",
-                borderRadius: "6px",
-                border: "1px solid #e5e7eb"
-              }}>
-                <div style={{ fontWeight: "600", fontSize: "14px", marginBottom: "8px", color: "#374151" }}>
+              <div className="mb-5 p-3 bg-gray-50 dark:bg-muted rounded-md border border-gray-200 dark:border-border">
+                <div className="font-semibold text-sm mb-2 text-gray-700 dark:text-foreground">
                   Current Access:
                 </div>
                 {isLoadingPermissions ? (
-                  <div style={{ fontSize: "12px", color: "#6b7280" }}>Loading...</div>
+                  <div className="text-xs text-gray-500 dark:text-muted-foreground">Loading...</div>
                 ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  <div className="flex flex-col gap-1.5">
                     {permissions.map((perm, index) => (
-                      <div key={index} style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        fontSize: "13px",
-                        padding: "6px 8px",
-                        background: "white",
-                        borderRadius: "4px"
-                      }}>
-                        <span style={{ fontWeight: "500", color: "#111827" }}>{perm.username}</span>
-                        <span style={{
-                          color: perm.role === 'editor' ? '#059669' : '#d97706',
-                          fontWeight: "500",
-                          textTransform: "capitalize"
-                        }}>
+                      <div key={index} className="flex justify-between text-sm p-1.5 px-2 bg-white dark:bg-secondary rounded">
+                        <span className="font-medium text-gray-900 dark:text-foreground">{perm.username}</span>
+                        <span className={`font-medium capitalize ${perm.role === 'editor' ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
                           {perm.role}
                         </span>
                       </div>
@@ -199,15 +157,8 @@ export const RoleManagement = ({ currentUser, isOwner }: RoleManagementProps) =>
               </div>
             )}
 
-            <div style={{ marginBottom: "16px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  fontWeight: "500",
-                  fontSize: "14px",
-                }}
-              >
+            <div className="mb-4">
+              <label className="block mb-2 font-medium text-sm text-foreground">
                 Username
               </label>
               <input
@@ -215,37 +166,18 @@ export const RoleManagement = ({ currentUser, isOwner }: RoleManagementProps) =>
                 value={selectedUsername}
                 onChange={(e) => setSelectedUsername(e.target.value)}
                 placeholder="Enter username (e.g., john, jane, alice)"
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-input dark:bg-background dark:text-foreground rounded-md text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400"
               />
             </div>
 
-            <div style={{ marginBottom: "20px" }}>
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "8px",
-                  fontWeight: "500",
-                  fontSize: "14px",
-                }}
-              >
+            <div className="mb-5">
+              <label className="block mb-2 font-medium text-sm text-foreground">
                 Role
               </label>
               <select
                 value={selectedRole}
                 onChange={(e) => setSelectedRole(e.target.value as DocumentRole)}
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-input dark:bg-background dark:text-foreground rounded-md text-sm focus:outline-none focus:border-blue-500 dark:focus:border-blue-400"
               >
                 <option value={DocumentRole.VIEWER}>Viewer (can view only)</option>
                 <option value={DocumentRole.EDITOR}>Editor (can view and edit)</option>
@@ -255,69 +187,39 @@ export const RoleManagement = ({ currentUser, isOwner }: RoleManagementProps) =>
 
             {message && (
               <div
-                style={{
-                  padding: "12px",
-                  marginBottom: "16px",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  background: message.includes("Success") ? "#d1fae5" : "#fee2e2",
-                  color: message.includes("Success") ? "#065f46" : "#991b1b",
-                  border: message.includes("Success") ? "1px solid #059669" : "1px solid #ef4444",
-                  fontWeight: message.includes("admin") ? "600" : "normal"
-                }}
+                className={`p-3 mb-4 rounded-md text-sm ${
+                  message.includes("Success")
+                    ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-500 dark:border-green-700"
+                    : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-500 dark:border-red-700"
+                } ${message.includes("admin") ? "font-semibold" : ""}`}
               >
                 {message}
               </div>
             )}
 
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+            <div className="flex gap-3 justify-end">
               <button
                 onClick={() => {
                   setShowModal(false);
                   setMessage("");
                   setSelectedUsername("");
                 }}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "1px solid #d1d5db",
-                  background: "white",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                }}
+                className="px-4 py-2 rounded-md border border-gray-300 dark:border-border bg-white dark:bg-secondary text-foreground text-sm hover:bg-gray-50 dark:hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdateRole}
                 disabled={isUpdating || !selectedUsername}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "6px",
-                  border: "none",
-                  background: isUpdating || !selectedUsername ? "#9ca3af" : "#3b82f6",
-                  color: "white",
-                  cursor: isUpdating || !selectedUsername ? "not-allowed" : "pointer",
-                  fontSize: "14px",
-                  fontWeight: "500",
-                }}
+                className="px-4 py-2 rounded-md text-white font-medium text-sm transition-colors disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed bg-blue-500 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700"
               >
                 {isUpdating ? "Updating..." : "Update Role"}
               </button>
             </div>
 
-            <div
-              style={{
-                marginTop: "20px",
-                padding: "12px",
-                background: "#f3f4f6",
-                borderRadius: "6px",
-                fontSize: "12px",
-                color: "#6b7280",
-              }}
-            >
-              <p style={{ margin: "0 0 8px 0", fontWeight: "600" }}>Role Descriptions:</p>
-              <ul style={{ margin: 0, paddingLeft: "20px" }}>
+            <div className="mt-5 p-3 bg-gray-100 dark:bg-muted rounded-md text-xs text-gray-500 dark:text-muted-foreground">
+              <p className="m-0 mb-2 font-semibold">Role Descriptions:</p>
+              <ul className="m-0 pl-5">
                 <li><strong>Viewer:</strong> Can open and view the document (read-only)</li>
                 <li><strong>Editor:</strong> Can view and edit the document</li>
                 <li><strong>Guest:</strong> No access to the document</li>

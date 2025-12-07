@@ -221,34 +221,21 @@ export const TextEditor = () => {
   }, [quill, canEdit]);
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', padding: '8px 16px', background: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+    <div className="min-h-screen bg-background">
+      <div className="flex justify-between items-center gap-2 p-2 px-4 bg-secondary/50 dark:bg-secondary border-b border-border">
         <button
           onClick={() => navigate('/')}
-          style={{
-            background: '#6b7280',
-            color: 'white',
-            padding: '8px 16px',
-            borderRadius: '6px',
-            border: 'none',
-            cursor: 'pointer',
-            fontWeight: '500',
-            fontSize: '14px',
-          }}
+          className="bg-gray-500 hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors"
         >
           ← Back to Home
         </button>
         {userRole && (
-          <div style={{ 
-            background: userRole === 'owner' ? '#dbeafe' : userRole === 'editor' ? '#d1fae5' : '#fef3c7',
-            padding: '8px 16px',
-            fontSize: '14px',
-            fontWeight: '500',
-            color: userRole === 'owner' ? '#1e40af' : userRole === 'editor' ? '#065f46' : '#92400e',
-            borderRadius: '6px',
-            flex: 1,
-            textAlign: 'center'
-          }}>
+          <div className={`
+            px-4 py-2 text-sm font-medium rounded-md flex-1 text-center
+            ${userRole === 'owner' ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-800 dark:text-blue-300' : ''}
+            ${userRole === 'editor' ? 'bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300' : ''}
+            ${userRole === 'viewer' ? 'bg-yellow-100 dark:bg-yellow-900/40 text-yellow-800 dark:text-yellow-300' : ''}
+          `}>
             Your role: {userRole.toUpperCase()}
           </div>
         )}
@@ -258,17 +245,7 @@ export const TextEditor = () => {
             <button
               onClick={handleDeleteDocument}
               disabled={isDeleting}
-              style={{
-                background: '#ef4444',
-                color: 'white',
-                padding: '8px 16px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: isDeleting ? 'not-allowed' : 'pointer',
-                fontWeight: '500',
-                fontSize: '14px',
-                opacity: isDeleting ? 0.5 : 1,
-              }}
+              className="bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isDeleting ? 'Deleting...' : 'Delete Document'}
             </button>

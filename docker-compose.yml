@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     image: myapp-client:1.0
     ports:
-      - "5173:80"      
+      - "12354:80"      
     env_file:
       - ./client/.env
     depends_on:
@@ -47,7 +47,7 @@ services:
         max-file: "5"
 
   mongo:
-    image: mongo:latest
+    image: mongo:6
     volumes:
       - mongo-data:/data/db
     expose:

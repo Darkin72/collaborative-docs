@@ -17,6 +17,7 @@ Dự án cho phép nhiều người dùng cùng tạo, chỉnh sửa và cộng 
 | 🔄 **Đồng bộ hóa** | Tự động đồng bộ qua Socket.IO + Redis Pub/Sub |
 | 🎨 **Rich Text Editor** | Quill editor với định dạng văn bản phong phú |
 | 🔐 **Xác thực người dùng** | Đăng nhập/Đăng ký |
+| 🌙 **Dark Mode** | Chuyển đổi giao diện Sáng/Tối/Theo hệ thống |
 
 ## 🏗️ Kiến trúc hệ thống
 

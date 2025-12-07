@@ -2,6 +2,13 @@ import { Document } from "../models/documentModel";
 import { DocumentRole } from "../types/api.types";
 import { checkDocumentPermission, getUserRole } from "../middleware/permissions";
 import { fakeAccounts } from "../data/accounts";
+import { 
+    getDocumentFromCache, 
+    setDocumentInCache, 
+    updateDocumentDataInCache,
+    invalidateDocumentCache,
+    getCacheStats 
+} from "../config/documentCache";
 
 const defaultData = "";
 
@@ -37,6 +44,38 @@ export const findOrCreateDocument = async({
         return null;
     }   
     
+    // Try to get from cache first
+    const cachedDoc = await getDocumentFromCache(documentId);
+    
+    if (cachedDoc) {
+        // Document found in cache - verify permissions
+        console.log(`[CACHE] Document ${documentId} loaded from cache`);
+        
+        // Check permissions using cached data
+        const document = await Document.findById(documentId).lean();
+        if (!document) {
+            // Document was deleted, invalidate cache
+            await invalidateDocumentCache(documentId);
+            return null;
+        }
+        
+        const permission = await checkDocumentPermission(documentId, userId);
+        
+        if (!permission.hasAccess) {
+            throw new Error("Access denied. You do not have permission to view this document.");
+        }
+        
+        return {
+            _id: documentId,
+            data: cachedDoc.data,
+            name: cachedDoc.name,
+            ownerId: cachedDoc.ownerId,
+            userRole: permission.role,
+            canEdit: permission.canEdit
+        };
+    }
+    
+    // Cache miss - query MongoDB
     let document = await Document.findById(documentId);
     
     if(document){
@@ -46,6 +85,14 @@ export const findOrCreateDocument = async({
         if (!permission.hasAccess) {
             throw new Error("Access denied. You do not have permission to view this document.");
         }
+        
+        // Cache the document for future reads
+        await setDocumentInCache(documentId, {
+            data: document.data,
+            name: document.name || documentName || 'Untitled',
+            ownerId: document.ownerId || userId,
+            permissions: document.permissions as Map<string, string>
+        });
         
         return {
             ...document.toObject(),
@@ -60,6 +107,14 @@ export const findOrCreateDocument = async({
         name: documentName, 
         data: defaultData,
         ownerId: userId,
+        permissions: new Map()
+    });
+    
+    // Cache the newly created document
+    await setDocumentInCache(documentId, {
+        data: newDocument.data,
+        name: newDocument.name || documentName || 'Untitled',
+        ownerId: newDocument.ownerId || userId,
         permissions: new Map()
     });
     
@@ -83,6 +138,11 @@ export const updateDocument = async(id: string, data: Object, userId: string) =>
     }
     
     await Document.findByIdAndUpdate(id, data);
+    
+    // Update cache with new data (write-through caching)
+    if ('data' in data) {
+        await updateDocumentDataInCache(id, (data as any).data);
+    }
 }
 
 export const updateUserRole = async(
@@ -131,6 +191,9 @@ export const updateUserRole = async(
     }
     
     await document.save();
+    
+    // Invalidate cache since permissions changed
+    await invalidateDocumentCache(documentId);
 }
 
 export const getDocumentPermissions = async(documentId: string, userId: string) => {
@@ -185,5 +248,11 @@ export const deleteDocument = async(documentId: string, userId: string) => {
     
     console.log(`[DELETE] Deleting document ${documentId}`);
     await Document.findByIdAndDelete(documentId);
+    
+    // Remove from cache
+    await invalidateDocumentCache(documentId);
     console.log(`[DELETE] Document deleted successfully`);
 }
+
+// Export cache stats for monitoring
+export { getCacheStats } from "../config/documentCache";
