@@ -42,8 +42,6 @@ ENV PORT=3000
 
 # copy với --chown để set ownership ngay lúc copy (tránh chown -R chậm)
 COPY --chown=appuser:appgroup --from=builder /app ./
-# nếu bạn muốn tiết kiệm dung lượng: xóa devDependencies nếu có
-RUN npm prune --production || true
 
 USER appuser
 

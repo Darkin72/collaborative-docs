@@ -2,6 +2,7 @@ import { Server, Socket } from "socket.io";
 import {
   findOrCreateDocument,
   updateDocument,
+  VersionConflictError,
 } from "../controllers/documentController";
 import { checkDocumentPermission } from "../middleware/permissions";
 import { createEventRateLimiter } from "../middleware/socketRateLimiter";
@@ -13,6 +14,7 @@ const documentBatches = new Map<string, {
   data: any;
   timer: NodeJS.Timeout | null;
   lastUpdate: number;
+  expectedVersion?: number;  // Track version for OCC
 }>();
 
 export function setupDocumentSocket(io: Server) {
@@ -66,7 +68,8 @@ export function setupDocumentSocket(io: Server) {
         socket.emit("load-document", {
           data: document.data,
           role: document.userRole,
-          canEdit: document.canEdit
+          canEdit: document.canEdit,
+          version: document.version  // Include version for OCC
         });
 
         socket.removeAllListeners("send-changes");
@@ -83,8 +86,12 @@ export function setupDocumentSocket(io: Server) {
           }
         }));
 
-        // Batching implementation for save-document
-        socket.on("save-document", rateLimitEvent("save-document", async (data) => {
+        // Batching implementation for save-document with Optimistic Concurrency Control
+        socket.on("save-document", rateLimitEvent("save-document", async (payload: { data: any; version?: number }) => {
+          // Support both old format (just data) and new format ({ data, version })
+          const data = payload.data !== undefined ? payload.data : payload;
+          const expectedVersion = payload.version;
+          
           // Only users with edit permission can save
           if (!document.canEdit) {
             socket.emit("permission-error", {
@@ -102,14 +109,19 @@ export function setupDocumentSocket(io: Server) {
             batch = {
               data: null,
               timer: null,
-              lastUpdate: now
+              lastUpdate: now,
+              expectedVersion: expectedVersion
             };
             documentBatches.set(documentId, batch);
           }
 
-          // Update the data
+          // Update the data and version
           batch.data = data;
           batch.lastUpdate = now;
+          // Only update expectedVersion if provided (for OCC)
+          if (expectedVersion !== undefined) {
+            batch.expectedVersion = expectedVersion;
+          }
 
           // Clear existing timer if any
           if (batch.timer) {
@@ -122,13 +134,43 @@ export function setupDocumentSocket(io: Server) {
             
             if (batchToSave && batchToSave.data) {
               try {
-                await updateDocument(documentId, { data: batchToSave.data }, userId);
-                console.log(`[BATCHING] Saved document ${documentId} (batched after ${BATCH_INTERVAL}ms)`);
+                const result = await updateDocument(
+                  documentId, 
+                  { data: batchToSave.data }, 
+                  userId,
+                  batchToSave.expectedVersion
+                );
+                
+                console.log(`[BATCHING] Saved document ${documentId} (batched after ${BATCH_INTERVAL}ms, version: ${result?.version})`);
+                
+                // Notify client of successful save with new version
+                socket.emit("save-success", {
+                  version: result?.version,
+                  timestamp: Date.now()
+                });
+                
+                // Broadcast version update to other clients editing the same document
+                socket.broadcast.to(documentId).emit("version-update", {
+                  version: result?.version,
+                  timestamp: Date.now()
+                });
+                
               } catch (error: any) {
                 console.error(`[BATCHING] Error saving document ${documentId}:`, error);
-                socket.emit("save-error", {
-                  error: error.message || "Failed to save document"
-                });
+                
+                if (error instanceof VersionConflictError) {
+                  // Send version conflict error with current data for merge
+                  socket.emit("version-conflict", {
+                    error: error.message,
+                    currentVersion: error.currentVersion,
+                    currentData: error.currentData,
+                    timestamp: Date.now()
+                  });
+                } else {
+                  socket.emit("save-error", {
+                    error: error.message || "Failed to save document"
+                  });
+                }
               }
             }
             
@@ -160,10 +202,10 @@ export function setupDocumentSocket(io: Server) {
           if (batch && batch.timer) {
             clearTimeout(batch.timer);
             
-            // Immediately save if there's data
+            // Immediately save if there's data (without version check on disconnect to prevent data loss)
             if (batch.data) {
-              updateDocument(room, { data: batch.data }, userId)
-                .then(() => console.log(`[BATCHING] Flushed document ${room} on user disconnect`))
+              updateDocument(room, { data: batch.data }, userId, undefined)
+                .then((result) => console.log(`[BATCHING] Flushed document ${room} on user disconnect (version: ${result?.version})`))
                 .catch(err => console.error(`[BATCHING] Error flushing document ${room}:`, err));
             }
             

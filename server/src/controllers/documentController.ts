@@ -134,7 +134,8 @@ export const findOrCreateDocument = async({
             name: cachedDoc.name,
             ownerId: cachedDoc.ownerId,
             userRole: permission.role,
-            canEdit: permission.canEdit
+            canEdit: permission.canEdit,
+            version: (document as any).__v || 0
         };
     }
     
@@ -160,7 +161,8 @@ export const findOrCreateDocument = async({
         return {
             ...document.toObject(),
             userRole: permission.role,
-            canEdit: permission.canEdit
+            canEdit: permission.canEdit,
+            version: (document as any).__v || 0
         };
     }
 
@@ -184,11 +186,38 @@ export const findOrCreateDocument = async({
     return {
         ...newDocument.toObject(),
         userRole: DocumentRole.OWNER,
-        canEdit: true
+        canEdit: true,
+        version: (newDocument as any).__v || 0
     };
 }
 
-export const updateDocument = async(id: string, data: Object, userId: string) => {
+// Custom error class for version conflicts (Optimistic Concurrency Control)
+export class VersionConflictError extends Error {
+    public currentVersion: number;
+    public currentData: any;
+    
+    constructor(message: string, currentVersion: number, currentData: any) {
+        super(message);
+        this.name = 'VersionConflictError';
+        this.currentVersion = currentVersion;
+        this.currentData = currentData;
+    }
+}
+
+/**
+ * Update document with Optimistic Concurrency Control
+ * @param id - Document ID
+ * @param data - Data to update (should contain 'data' field for content)
+ * @param userId - User making the update
+ * @param expectedVersion - The version client expects (for OCC). If provided, will check version before update.
+ * @returns Updated document with new version, or throws VersionConflictError if version mismatch
+ */
+export const updateDocument = async(
+    id: string, 
+    data: Object, 
+    userId: string,
+    expectedVersion?: number
+): Promise<{ version: number; data: any } | undefined> => {
     if(!id){
         return;
     }
@@ -200,12 +229,78 @@ export const updateDocument = async(id: string, data: Object, userId: string) =>
         throw new Error("Access denied. You do not have permission to edit this document.");
     }
     
-    await Document.findByIdAndUpdate(id, data);
+    // If expectedVersion is provided, use Optimistic Concurrency Control
+    if (expectedVersion !== undefined) {
+        // Find document and check version
+        const currentDoc = await Document.findById(id);
+        
+        if (!currentDoc) {
+            throw new Error("Document not found");
+        }
+        
+        const currentVersion = (currentDoc as any).__v || 0;
+        
+        // Check if version matches
+        if (currentVersion !== expectedVersion) {
+            // Version conflict - throw error with current data for client to merge
+            throw new VersionConflictError(
+                `Version conflict: expected version ${expectedVersion}, but current version is ${currentVersion}. Please refresh and merge your changes.`,
+                currentVersion,
+                currentDoc.data
+            );
+        }
+        
+        // Version matches - update with version increment
+        // Use findOneAndUpdate with version check for atomic operation
+        const updatedDoc = await Document.findOneAndUpdate(
+            { _id: id, __v: expectedVersion },
+            { 
+                ...data,
+                $inc: { __v: 1 }
+            },
+            { new: true }
+        );
+        
+        if (!updatedDoc) {
+            // Race condition - another update happened between check and update
+            const latestDoc = await Document.findById(id);
+            throw new VersionConflictError(
+                'Document was modified by another user. Please refresh and merge your changes.',
+                (latestDoc as any)?.__v || 0,
+                latestDoc?.data
+            );
+        }
+        
+        // Update cache with new data (write-through caching)
+        if ('data' in data) {
+            await updateDocumentDataInCache(id, (data as any).data);
+        }
+        
+        return {
+            version: (updatedDoc as any).__v,
+            data: updatedDoc.data
+        };
+    }
+    
+    // No version check - legacy behavior (used for real-time sync without OCC)
+    const updatedDoc = await Document.findByIdAndUpdate(
+        id, 
+        { 
+            ...data,
+            $inc: { __v: 1 }
+        },
+        { new: true }
+    );
     
     // Update cache with new data (write-through caching)
     if ('data' in data) {
         await updateDocumentDataInCache(id, (data as any).data);
     }
+    
+    return updatedDoc ? {
+        version: (updatedDoc as any).__v,
+        data: updatedDoc.data
+    } : undefined;
 }
 
 export const updateUserRole = async(

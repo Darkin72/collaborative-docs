@@ -15,6 +15,8 @@ export const TextEditor = () => {
   const [canEdit, setCanEdit] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [documentVersion, setDocumentVersion] = useState<number>(0);
+  const [hasConflict, setHasConflict] = useState(false);
 
   useEffect(() => {
     const userStr = localStorage.getItem("user");
@@ -115,14 +117,65 @@ export const TextEditor = () => {
       }
     };
 
+    // Handle version conflict (Optimistic Concurrency Control)
+    const handleVersionConflict = (data: { 
+      error: string; 
+      currentVersion: number; 
+      currentData: any;
+      timestamp: number;
+    }) => {
+      console.warn("[OCC] Version conflict detected:", data.error);
+      setHasConflict(true);
+      
+      // Show conflict dialog to user
+      const shouldMerge = window.confirm(
+        `Version conflict detected!\n\n` +
+        `Another user has modified this document.\n` +
+        `Your version: ${documentVersion}, Server version: ${data.currentVersion}\n\n` +
+        `Click OK to reload the latest version (your recent changes may be lost),\n` +
+        `or Cancel to continue editing (changes will be saved on next auto-save).`
+      );
+      
+      if (shouldMerge && quill) {
+        // Reload with server data
+        quill.setContents(data.currentData);
+        setDocumentVersion(data.currentVersion);
+        setHasConflict(false);
+        console.log("[OCC] Reloaded document with server version:", data.currentVersion);
+      } else {
+        // User chose to keep their version - update local version to force next save
+        setDocumentVersion(data.currentVersion);
+        setHasConflict(false);
+      }
+    };
+
+    // Handle successful save with version update
+    const handleSaveSuccess = (data: { version: number; timestamp: number }) => {
+      console.log("[OCC] Save successful, new version:", data.version);
+      setDocumentVersion(data.version);
+      setHasConflict(false);
+    };
+
+    // Handle version update from other clients
+    const handleVersionUpdate = (data: { version: number; timestamp: number }) => {
+      console.log("[OCC] Version update from another client:", data.version);
+      setDocumentVersion(data.version);
+    };
+
     socket.on("access-denied", handleAccessDenied);
     socket.on("permission-error", handlePermissionError);
+    socket.on("version-conflict", handleVersionConflict);
+    socket.on("save-success", handleSaveSuccess);
+    socket.on("version-update", handleVersionUpdate);
 
     return () => {
       socket.off("access-denied", handleAccessDenied);
       socket.off("permission-error", handlePermissionError);
+      socket.off("version-conflict", handleVersionConflict);
+      socket.off("save-success", handleSaveSuccess);
+      socket.off("version-update", handleVersionUpdate);
     };
-  }, [navigate, quill]);
+  }, [navigate, quill, documentVersion]);
 
   // Load document
   useEffect(() => {
@@ -132,9 +185,12 @@ export const TextEditor = () => {
       const document = response.data || response;
       const role = response.role;
       const editable = response.canEdit;
+      const version = response.version || 0;
 
       setUserRole(role);
       setCanEdit(editable);
+      setDocumentVersion(version);
+      console.log("[OCC] Document loaded with version:", version);
 
       quill.setContents(document);
       
@@ -208,18 +264,22 @@ export const TextEditor = () => {
     };
   }, [quill]);
 
-  // Auto-save document
+  // Auto-save document with version (Optimistic Concurrency Control)
   useEffect(() => {
     if (!quill || !canEdit) return;
 
     const interval = setInterval(() => {
-      socket.emit("save-document", quill.getContents());
+      // Send document content with current version for OCC
+      socket.emit("save-document", {
+        data: quill.getContents(),
+        version: documentVersion
+      });
     }, SAVE_INTERVAL_MS);
 
     return () => {
       clearInterval(interval);
     };
-  }, [quill, canEdit]);
+  }, [quill, canEdit, documentVersion]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -240,6 +300,16 @@ export const TextEditor = () => {
             Your role: {userRole.toUpperCase()}
           </div>
         )}
+        {/* Version indicator */}
+        <div className={`
+          px-3 py-1 text-xs font-medium rounded-md
+          ${hasConflict 
+            ? 'bg-red-100 dark:bg-red-900/40 text-red-800 dark:text-red-300 animate-pulse' 
+            : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+          }
+        `}>
+          {hasConflict ? '⚠️ Conflict' : `v${documentVersion}`}
+        </div>
         {currentUser && documentId && (
           <ExportButton documentId={documentId} userId={currentUser.id} />
         )}
