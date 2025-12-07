@@ -4,6 +4,7 @@
 
 Triển khai Optimistic Concurrency Control để đảm bảo tính nhất quán dữ liệu khi nhiều người dùng cùng chỉnh sửa và lưu tài liệu tại cùng một thời điểm.
 
+
 ## Vấn đề cần giải quyết
 
 Trong ứng dụng collaborative editing, khi nhiều người dùng cùng chỉnh sửa một tài liệu:
@@ -12,6 +13,8 @@ Trong ứng dụng collaborative editing, khi nhiều người dùng cùng chỉ
 - **Race Condition**: Xung đột khi nhiều requests đồng thời
 
 ## Giải pháp: Optimistic Concurrency Control
+Tại sao lại là OCC chứ không phải PCC? 
+PCC: Coi conflict thường xuyên xảy ra và lock document 
 
 ### Cơ chế hoạt động
 

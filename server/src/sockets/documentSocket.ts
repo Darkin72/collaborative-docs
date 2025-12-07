@@ -7,6 +7,7 @@ import {
 import { checkDocumentPermission } from "../middleware/permissions";
 import { createEventRateLimiter } from "../middleware/socketRateLimiter";
 import { extendDocumentCacheTTL, updateDocumentDataInCache } from "../config/documentCache";
+import { otManager } from "../utils/otDocumentManager";
 
 // Batching configuration
 const BATCH_INTERVAL = 2000; // 2 seconds
@@ -74,16 +75,21 @@ export function setupDocumentSocket(io: Server) {
         // Extend cache TTL since document is being actively viewed
         extendDocumentCacheTTL(documentId);
 
+        // Initialize OT manager for this document
+        otManager.initDocument(documentId, document.data, document.version);
+
         socket.emit("load-document", {
           data: document.data,
           role: document.userRole,
           canEdit: document.canEdit,
-          version: document.version  // Include version for OCC
+          version: document.version  // Include version for OCC and OT
         });
 
         socket.removeAllListeners("send-changes");
+        socket.removeAllListeners("send-changes-ot");
         socket.removeAllListeners("save-document");
 
+        // Original send-changes (without OT)
         socket.on("send-changes", rateLimitEvent("send-changes", (delta) => {
           // Only users with edit permission can send changes
           if (document.canEdit) {
@@ -93,6 +99,57 @@ export function setupDocumentSocket(io: Server) {
               error: "You do not have permission to edit this document"
             });
           }
+        }));
+
+        // NEW: Operational Transformation enabled send-changes
+        socket.on("send-changes-ot", rateLimitEvent("send-changes-ot", (payload: { delta: any; version: number }) => {
+          // Only users with edit permission can send changes
+          if (!document.canEdit) {
+            socket.emit("permission-error", {
+              error: "You do not have permission to edit this document"
+            });
+            return;
+          }
+
+          const { delta, version: clientVersion } = payload;
+          
+          // Process operation through OT
+          const result = otManager.processOperation(
+            documentId,
+            userId,
+            delta,
+            clientVersion
+          );
+
+          if (!result.success) {
+            // Send error back to client
+            socket.emit("ot-error", {
+              error: result.error,
+              currentVersion: otManager.getVersion(documentId)
+            });
+            return;
+          }
+
+          // If operation was transformed, send acknowledgment with new delta
+          if (result.transformedDelta !== delta) {
+            socket.emit("ot-transform", {
+              originalDelta: delta,
+              transformedDelta: result.transformedDelta,
+              version: result.newVersion
+            });
+          } else {
+            // No transformation needed, just acknowledge
+            socket.emit("ot-ack", {
+              version: result.newVersion
+            });
+          }
+
+          // Broadcast transformed operation to all other clients
+          socket.broadcast.to(documentId).emit("receive-changes-ot", {
+            delta: result.transformedDelta,
+            version: result.newVersion,
+            clientId: userId
+          });
         }));
 
         // Batching implementation for save-document with Optimistic Concurrency Control
@@ -234,6 +291,63 @@ export function setupDocumentSocket(io: Server) {
             documentBatches.delete(documentId);
           }, BATCH_INTERVAL);
         }));
+
+        // NEW: OT-aware periodic save
+        socket.on("save-document-ot", rateLimitEvent("save-document-ot", async () => {
+          if (!document.canEdit) {
+            socket.emit("permission-error", {
+              error: "You do not have permission to edit this document"
+            });
+            return;
+          }
+
+          // Get current state from OT manager
+          const docState = otManager.getDocumentState(documentId);
+          if (!docState) {
+            socket.emit("save-error", {
+              error: "Document not found in OT manager"
+            });
+            return;
+          }
+
+          try {
+            // Save current OT state to database
+            const result = await updateDocument(
+              documentId,
+              { data: { ops: [{ insert: docState.content }] } },  // Convert plain text to Delta
+              userId,
+              docState.version
+            );
+
+            console.log(`[OT] Saved document ${documentId} (version: ${result?.version})`);
+
+            socket.emit("save-success", {
+              version: result?.version,
+              timestamp: Date.now()
+            });
+
+            socket.broadcast.to(documentId).emit("version-update", {
+              version: result?.version,
+              timestamp: Date.now()
+            });
+
+          } catch (error: any) {
+            console.error(`[OT] Error saving document ${documentId}:`, error);
+            
+            if (error instanceof VersionConflictError) {
+              socket.emit("version-conflict", {
+                error: error.message,
+                currentVersion: error.currentVersion,
+                currentData: error.currentData,
+                timestamp: Date.now()
+              });
+            } else {
+              socket.emit("save-error", {
+                error: error.message || "Failed to save document"
+              });
+            }
+          }
+        }));
       } catch (error: any) {
         console.error(`Error loading document ${documentId}:`, error);
         socket.emit("access-denied", {
@@ -253,6 +367,10 @@ export function setupDocumentSocket(io: Server) {
             username: displayUsername,
           });
           
+          // Check if this is the last user in the room
+          const socketsInRoom = io.sockets.adapter.rooms.get(room);
+          const isLastUser = !socketsInRoom || socketsInRoom.size <= 1;
+          
           // Flush any pending batched writes for this document
           const batch = documentBatches.get(room);
           if (batch && batch.timer) {
@@ -270,6 +388,12 @@ export function setupDocumentSocket(io: Server) {
             }
             
             documentBatches.delete(room);
+          }
+
+          // Clean up OT manager if last user
+          if (isLastUser) {
+            console.log(`[OT] Clearing document ${room} from OT manager (last user disconnecting)`);
+            otManager.clearDocument(room);
           }
         }
       }

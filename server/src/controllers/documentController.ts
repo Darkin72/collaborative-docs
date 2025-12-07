@@ -21,18 +21,20 @@ export const getAllDocuments = async(userId: string) => {
         .lean()
         .exec();
     
-    // Return all documents with owner info and user's role
-    const documentsWithInfo = documents.map(doc => {
-        const role = getUserRole(doc, userId);
-        const owner = fakeAccounts.find(acc => acc.id === doc.ownerId);
-        
-        return {
-            ...doc,
-            userRole: role,
-            ownerName: owner?.displayName || 'Unknown',
-            ownerId: doc.ownerId
-        };
-    });
+    // Filter documents based on user permissions and add owner info
+    const documentsWithInfo = documents
+        .map(doc => {
+            const role = getUserRole(doc, userId);
+            const owner = fakeAccounts.find(acc => acc.id === doc.ownerId);
+            
+            return {
+                ...doc,
+                userRole: role,
+                ownerName: owner?.displayName || 'Unknown',
+                ownerId: doc.ownerId
+            };
+        })
+        .filter(doc => doc.userRole !== DocumentRole.GUEST); // Only return documents user has access to
     
     return documentsWithInfo;
 }
@@ -78,18 +80,20 @@ export const searchDocuments = async(userId: string, searchQuery: string) => {
             .exec();
     }
     
-    // Filter and add user role info
-    const documentsWithInfo = documents.map(doc => {
-        const role = getUserRole(doc, userId);
-        const owner = fakeAccounts.find(acc => acc.id === doc.ownerId);
-        
-        return {
-            ...doc,
-            userRole: role,
-            ownerName: owner?.displayName || 'Unknown',
-            ownerId: doc.ownerId
-        };
-    });
+    // Filter documents based on permissions and add user role info
+    const documentsWithInfo = documents
+        .map(doc => {
+            const role = getUserRole(doc, userId);
+            const owner = fakeAccounts.find(acc => acc.id === doc.ownerId);
+            
+            return {
+                ...doc,
+                userRole: role,
+                ownerName: owner?.displayName || 'Unknown',
+                ownerId: doc.ownerId
+            };
+        })
+        .filter(doc => doc.userRole !== DocumentRole.GUEST); // Only return documents user has access to
     
     return documentsWithInfo;
 }

@@ -60,8 +60,14 @@ export async function checkDocumentPermission(
   }
 
   // Check if user has explicit permissions
-  const permissions = document.permissions as Map<string, string>;
-  const userRole = permissions?.get(userId) as DocumentRole;
+  // Handle both Map (Mongoose document) and plain object (lean query result)
+  let userRole: DocumentRole | undefined;
+  
+  if (document.permissions instanceof Map) {
+    userRole = document.permissions.get(userId) as DocumentRole;
+  } else if (document.permissions && typeof document.permissions === 'object') {
+    userRole = document.permissions[userId] as DocumentRole;
+  }
 
   if (!userRole || userRole === DocumentRole.GUEST) {
     console.log(`[PERMISSION CHECK] Access denied - no permissions`);
@@ -92,8 +98,15 @@ export function getUserRole(document: any, userId: string): DocumentRole {
     return DocumentRole.OWNER;
   }
 
-  const permissions = document.permissions as Map<string, string>;
-  const userRole = permissions?.get(userId) as DocumentRole;
+  // Handle both Map (Mongoose document) and plain object (lean query result)
+  let userRole: DocumentRole | undefined;
+  
+  if (document.permissions instanceof Map) {
+    userRole = document.permissions.get(userId) as DocumentRole;
+  } else if (document.permissions && typeof document.permissions === 'object') {
+    // Plain object from lean() query
+    userRole = document.permissions[userId] as DocumentRole;
+  }
 
   return userRole || DocumentRole.GUEST;
 }
