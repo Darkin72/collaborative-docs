@@ -13,6 +13,7 @@ const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute window
 const MAX_REQUESTS_PER_WINDOW = 100; // 100 requests per minute for general API
 const MAX_AUTH_REQUESTS_PER_WINDOW = 20; // 20 auth requests per minute (stricter)
 const MAX_DOCUMENT_REQUESTS_PER_WINDOW = 50; // 50 document requests per minute
+const MAX_SEARCH_REQUESTS_PER_WINDOW = 30; // 30 search requests per minute
 
 // Store reference for Redis client
 let redisClient: RedisClientType | null = null;
@@ -97,6 +98,26 @@ export const documentRateLimiter = rateLimit({
   legacyHeaders: false,
   handler: rateLimitHandler,
   store: createStore("document"),
+  validate: { xForwardedForHeader: false },
+});
+
+/**
+ * Search API rate limiter
+ * Allows 30 requests per minute per IP (more restrictive due to regex queries)
+ */
+export const searchRateLimiter = rateLimit({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: MAX_SEARCH_REQUESTS_PER_WINDOW,
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req: Request, res: Response) => {
+    res.status(429).json({
+      error: "Too many search requests",
+      message: "Search is rate limited. Please wait before searching again.",
+      retryAfter: res.getHeader("Retry-After"),
+    });
+  },
+  store: createStore("search"),
   validate: { xForwardedForHeader: false },
 });
 

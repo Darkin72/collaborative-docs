@@ -12,8 +12,14 @@ import {
 
 const defaultData = "";
 
+// Get all documents with optimized query using index
 export const getAllDocuments = async(userId: string) => {
-    const documents = await Document.find();
+    // Use lean() for better performance when we don't need Mongoose document methods
+    // Sort by createdAt descending (newest first) - uses compound index
+    const documents = await Document.find()
+        .sort({ createdAt: -1 })
+        .lean()
+        .exec();
     
     // Return all documents with owner info and user's role
     const documentsWithInfo = documents.map(doc => {
@@ -21,7 +27,64 @@ export const getAllDocuments = async(userId: string) => {
         const owner = fakeAccounts.find(acc => acc.id === doc.ownerId);
         
         return {
-            ...doc.toObject(),
+            ...doc,
+            userRole: role,
+            ownerName: owner?.displayName || 'Unknown',
+            ownerId: doc.ownerId
+        };
+    });
+    
+    return documentsWithInfo;
+}
+
+// Get documents owned by a specific user (uses ownerId index)
+export const getDocumentsByOwner = async(ownerId: string) => {
+    const documents = await Document.find({ ownerId })
+        .sort({ createdAt: -1 })
+        .lean()
+        .exec();
+    
+    return documents.map(doc => {
+        const owner = fakeAccounts.find(acc => acc.id === doc.ownerId);
+        return {
+            ...doc,
+            userRole: DocumentRole.OWNER,
+            ownerName: owner?.displayName || 'Unknown'
+        };
+    });
+}
+
+// Search documents by name (supports partial matching with regex)
+export const searchDocuments = async(userId: string, searchQuery: string) => {
+    let documents;
+    
+    if (searchQuery && searchQuery.trim()) {
+        // Escape special regex characters for safety
+        const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        
+        // Use regex for partial matching (case-insensitive)
+        // This uses the name index for better performance
+        documents = await Document.find({
+            name: { $regex: escapedQuery, $options: 'i' }
+        })
+        .sort({ createdAt: -1 })
+        .lean()
+        .exec();
+    } else {
+        // Return all documents sorted by creation date
+        documents = await Document.find()
+            .sort({ createdAt: -1 })
+            .lean()
+            .exec();
+    }
+    
+    // Filter and add user role info
+    const documentsWithInfo = documents.map(doc => {
+        const role = getUserRole(doc, userId);
+        const owner = fakeAccounts.find(acc => acc.id === doc.ownerId);
+        
+        return {
+            ...doc,
             userRole: role,
             ownerName: owner?.displayName || 'Unknown',
             ownerId: doc.ownerId

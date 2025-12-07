@@ -4,7 +4,9 @@ import {
   updateUserRole, 
   getDocumentPermissions,
   getDocumentPermissionsList,
-  deleteDocument
+  deleteDocument,
+  searchDocuments,
+  getDocumentsByOwner
 } from "../controllers/documentController";
 import { exportToPdf, exportToDocx } from "../controllers/documentExportController";
 import { 
@@ -13,6 +15,7 @@ import {
   UpdateRoleResponse,
   PermissionCheckResponse 
 } from "../types/api.types";
+import { searchRateLimiter } from "../middleware/rateLimiter";
 
 const router = Router();
 
@@ -30,12 +33,62 @@ router.get(
       }
       
       const allDocuments = await getAllDocuments(userId);
-      allDocuments.reverse();
       res.json({ success: true, documents: allDocuments });
     } catch (error) {
       res
         .status(500)
         .json({ success: false, error: "Failed to fetch documents" });
+    }
+  },
+);
+
+// Search documents endpoint (uses regex for partial matching)
+// Rate limited to 30 requests per minute
+router.get(
+  "/search",
+  searchRateLimiter,
+  async (req: Request, res: Response<DocumentsResponse>) => {
+    try {
+      const userId = req.query.userId as string;
+      const query = req.query.q as string;
+      
+      if (!userId) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "User ID is required" 
+        });
+      }
+      
+      const documents = await searchDocuments(userId, query || '');
+      res.json({ success: true, documents });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, error: "Failed to search documents" });
+    }
+  },
+);
+
+// Get documents owned by a specific user (uses ownerId index)
+router.get(
+  "/my-documents",
+  async (req: Request, res: Response<DocumentsResponse>) => {
+    try {
+      const userId = req.query.userId as string;
+      
+      if (!userId) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "User ID is required" 
+        });
+      }
+      
+      const documents = await getDocumentsByOwner(userId);
+      res.json({ success: true, documents });
+    } catch (error) {
+      res
+        .status(500)
+        .json({ success: false, error: "Failed to fetch user documents" });
     }
   },
 );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Docs } from "./Docs";
 import { Topbar } from "./Topbar";
 import { Dialogbox } from "./Dialogbox";
@@ -29,17 +29,31 @@ interface LandingPageProps {
 export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
   const [documents, setDocuments] = useState<DocumentType[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Debounce search to avoid too many API calls
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedQuery(searchQuery);
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   useEffect(() => {
     const fetchDocuments = async () => {
       setIsLoading(true);
       try {
-        const response = await fetch(
-          `${import.meta.env.VITE_SERVER_URL}/api/documents?userId=${user.id}`,
-          {
-            credentials: "include",
-          }
-        );
+        // Use search endpoint if there's a query, otherwise fetch all
+        const endpoint = debouncedQuery.trim()
+          ? `${import.meta.env.VITE_SERVER_URL}/api/documents/search?userId=${user.id}&q=${encodeURIComponent(debouncedQuery)}`
+          : `${import.meta.env.VITE_SERVER_URL}/api/documents?userId=${user.id}`;
+
+        const response = await fetch(endpoint, {
+          credentials: "include",
+        });
         const data = await response.json();
         if (data.success) {
           setDocuments(data.documents);
@@ -52,11 +66,15 @@ export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
     };
 
     fetchDocuments();
-  }, [user.id]);
+  }, [user.id, debouncedQuery]);
+
+  const handleSearch = useCallback((query: string) => {
+    setSearchQuery(query);
+  }, []);
 
   return (
     <div className="LandingPage">
-      <Topbar user={user} onLogout={onLogout} />
+      <Topbar user={user} onLogout={onLogout} onSearch={handleSearch} />
       <div className="Docs-container-1">
         <div className="title-1"> Start a new document </div>
         <div>
@@ -70,7 +88,9 @@ export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
 
       {!isLoading && documents.length > 0 && (
         <div className="Docs-container-2">
-          <div className="title-2"> Recent documents </div>
+          <div className="title-2">
+            {searchQuery.trim() ? `Search results for "${searchQuery}"` : "Recent documents"}
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {documents?.map((docs, index) => (
               <Docs 
@@ -81,6 +101,12 @@ export const LandingPage = ({ user, onLogout }: LandingPageProps) => {
               />
             ))}
           </div>
+        </div>
+      )}
+
+      {!isLoading && documents.length === 0 && searchQuery.trim() && (
+        <div className="text-center py-8 text-gray-500">
+          No documents found for "{searchQuery}"
         </div>
       )}
     </div>
