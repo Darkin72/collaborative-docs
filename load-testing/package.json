@@ -6,11 +6,28 @@
     "test:baseline": "artillery run scenarios/baseline-test.yml --output reports/baseline-report.json",
     "test:optimized": "artillery run scenarios/optimized-test.yml --output reports/optimized-report.json",
     "test:stress": "artillery run scenarios/stress-test.yml --output reports/stress-report.json",
+    "test:data-loss": "node test-scripts/test-data-loss.js",
+    "test:user-interruption": "node test-scripts/test-user-interruption.js",
+    "test:ot-latency": "node test-scripts/test-ot-latency.js",
+    "test:occ-performance": "node test-scripts/test-occ-performance.js",
+    "test:transformation": "npm run test:data-loss && npm run test:user-interruption",
+    "test:all-transformation": "npm run test:data-loss && npm run test:user-interruption && npm run test:ot-latency && npm run test:occ-performance",
     "report:baseline": "artillery report reports/baseline-report.json",
     "report:optimized": "artillery report reports/optimized-report.json",
-    "report:all": "npm run report:baseline && npm run report:optimized"
+    "report:all": "npm run report:baseline && npm run report:optimized",
+    "test:all": "node test-scripts/run-all-tests.js",
+    "test:http": "node test-scripts/test-http-rate-limits.js",
+    "test:websocket": "node test-scripts/test-websocket-rate-limits.js",
+    "test:cache": "node test-scripts/test-cache-efficiency.js",
+    "test:compare": "node test-scripts/compare-before-after.js",
+    "artillery:rate-limit": "artillery run scenarios/rate-limit-validation.yml --output reports/rate-limit-artillery.json",
+    "artillery:cache": "artillery run scenarios/cache-performance.yml --output reports/cache-artillery.json"
   },
   "dependencies": {
-    "artillery": "^2.0.0"
+    "artillery": "^2.0.20",
+    "axios": "^1.7.0",
+    "chalk": "^4.1.2",
+    "mongodb": "^6.21.0",
+    "socket.io-client": "^4.8.0"
   }
 }
