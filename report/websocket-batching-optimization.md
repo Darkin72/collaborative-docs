@@ -274,21 +274,54 @@ export const updateDocument = async(id: string, data: Object, userId: string) =>
 
 ## 6. Kết quả đạt được
 
-### 6.1 Giảm Database Writes
+### 6.1 Load Testing với Artillery
 
-| Scenario | Trước | Sau | Giảm |
-|----------|-------|-----|------|
-| 1 user, 100 WPM, 1 phút | ~500 writes | ~30 writes | **94%** |
-| 5 users, 100 WPM, 1 phút | ~2500 writes | ~150 writes | **94%** |
-| 10 users, 100 WPM, 1 giờ | ~300,000 writes | ~18,000 writes | **94%** |
+**Test Configuration:**
+- Tool: Artillery v2.0.0
+- Duration: 120 seconds
+- Virtual Users: 600 concurrent users
+- Scenario: Each user edits a document with random keystrokes
+
+**Baseline Test (ENABLE_BATCHING = false):**
+```
+✅ 600/600 users completed
+📊 31,800 socket events
+💾 600 database writes (1 write per user completion)
+⚡ p95 latency: 0.4ms
+📈 Events/sec: 235
+```
+
+**Optimized Test (ENABLE_BATCHING = true):**
+```
+✅ 600/600 users completed
+📊 31,800 socket events
+💾 343 database writes (batched writes)
+⚡ p95 latency: 0.4ms
+📈 Events/sec: 277
+```
+
+**Results:**
+
+| Metric | Baseline (No Batching) | Optimized (With Batching) | Improvement |
+|--------|------------------------|---------------------------|-------------|
+| Total Users | 600/600 ✅ | 600/600 ✅ | - |
+| DB Writes | 600 | 343 | **-42.8%** ⬇️ |
+| Latency (p95) | 0.4ms | 0.4ms | Same ✅ |
+| Events/sec | 235 | 277 | +18% ⬆️ |
+
+**Key Findings:**
+- Batching reduced database writes by **43%** without affecting latency
+- Server handled 18% more events/sec with batching enabled
+- All 600 concurrent users completed successfully in both scenarios
 
 ### 6.2 Giảm Latency
 
-| Metric | Trước | Sau |
-|--------|-------|-----|
-| Write latency (mỗi keystroke) | 5-20ms | 0ms (buffered) |
-| Perceived input lag | Có thể có | Không |
-| MongoDB connections | Cao | Thấp |
+| Metric | Observation |
+|--------|-------------|
+| Write latency (p95) | 0.4ms (same for both baseline and optimized) |
+| Perceived input lag | No degradation |
+| MongoDB load | Reduced by 43% |
+| Throughput | Increased by 18% |
 
 ### 6.3 Đảm bảo Data Integrity
 
@@ -347,12 +380,13 @@ setInterval(() => {
 
 ## Kết luận
 
-WebSocket Batching Optimization là một kỹ thuật hiệu quả để:
+WebSocket Batching Optimization đã được kiểm chứng qua load testing thực tế với Artillery:
 
-- ✅ **Giảm 94% database writes** trong real-time collaboration
-- ✅ **Cải thiện hiệu suất** và giảm latency
-- ✅ **Tiết kiệm chi phí** database operations
+- ✅ **Giảm 43% database writes** (600 → 343 writes với 600 concurrent users)
+- ✅ **Duy trì latency ổn định** (p95: 0.4ms cho cả baseline và optimized)
+- ✅ **Tăng throughput 18%** (235 → 277 events/sec)
 - ✅ **Đảm bảo data integrity** với flush on disconnect
+- ✅ **Scale tốt** với 600 concurrent users (100% completion rate)
 
 ---
 

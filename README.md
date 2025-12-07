@@ -166,9 +166,9 @@ Truy cập ứng dụng: **https://colnote.iselab.info**
 
 Dự án đã triển khai nhiều kỹ thuật tối ưu hóa để đảm bảo hiệu suất và khả năng mở rộng. Chi tiết từng tối ưu có trong thư mục [`/report`](./report/).
 
-### 1. WebSocket Batching (Giảm 94% database writes)
+### 1. WebSocket Batching (Giảm 43% database writes)
 
-**Vấn đề:** Mỗi keystroke khi người dùng gõ văn bản tạo ra một write operation vào MongoDB (500+ writes/phút/user).
+**Vấn đề:** Mỗi keystroke khi người dùng gõ văn bản tạo ra một write operation vào MongoDB.
 
 **Giải pháp:** Buffer các thay đổi và ghi theo batch sau mỗi 2 giây.
 
@@ -176,9 +176,14 @@ Dự án đã triển khai nhiều kỹ thuật tối ưu hóa để đảm bả
 User typing → Buffer → Buffer → Buffer → [2s] → MongoDB write (1 lần)
 ```
 
-| Metric | Trước | Sau | Cải thiện |
-|--------|-------|-----|-----------|
-| DB Writes/phút (1 user) | ~500 | ~30 | **94%** |
+**Load Testing với Artillery (600 concurrent users, 120s):**
+
+| Metric | Baseline (No Batching) | Optimized (With Batching) | Cải thiện |
+|--------|------------------------|---------------------------|-----------|
+| Total Users | 600/600 ✅ | 600/600 ✅ | - |
+| DB Writes | 600 | 343 | **-43%** |
+| Latency (p95) | 0.4ms | 0.4ms | Same |
+| Events/sec | 235 | 277 | +18% |
 
 📄 Chi tiết: [`report/websocket-batching-optimization.md`](./report/websocket-batching-optimization.md)
 
@@ -275,7 +280,7 @@ User typing → Buffer → Buffer → Buffer → [2s] → MongoDB write (1 lần
 
 | Optimization | Vấn đề | Giải pháp | Cải thiện |
 |--------------|--------|-----------|-----------|
-| **WebSocket Batching** | Quá nhiều DB writes | Buffer + batch writes | **94%** giảm writes |
+| **WebSocket Batching** | Quá nhiều DB writes | Buffer + batch writes | **43%** giảm writes |
 | **Redis Cache** | Database load cao | Cache documents | **90%** giảm latency |
 | **MongoDB Indexing** | Slow queries | Đánh index | **10-200x** faster |
 | **Rate Limiting** | DDoS/Spam | Multi-layer limits | Bảo vệ endpoints |

@@ -1,5 +1,5 @@
 config:
-  target: "http://localhost:3000"
+  target: "http://localhost:12345"
   phases:
     - duration: 10  # Chỉ 10 giây
       arrivalRate: 1  # 1 user mỗi giây = total 10 users
@@ -7,6 +7,9 @@ config:
   engines:
     socketio:
       transports: ["websocket"]
+      auth:
+        userId: "{{ $randomString() }}"
+        username: "ArtilleryUser{{ $randomNumber(1, 10000) }}"
 
 scenarios:
   - name: "Simple Document Edit Test"

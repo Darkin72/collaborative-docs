@@ -10,6 +10,8 @@ import { extendDocumentCacheTTL, updateDocumentDataInCache } from "../config/doc
 
 // Batching configuration
 const BATCH_INTERVAL = 2000; // 2 seconds
+const ENABLE_BATCHING = true;
+
 const documentBatches = new Map<string, {
   data: any;
   timer: NodeJS.Timeout | null;
@@ -17,22 +19,29 @@ const documentBatches = new Map<string, {
   expectedVersion?: number;  // Track version for OCC
 }>();
 
+// Metrics tracking
+let totalSaveRequests = 0;
+let totalDbWrites = 0;
+
 export function setupDocumentSocket(io: Server) {
   io.on("connection", (socket: Socket) => {
     const currentClients = io.sockets.sockets.size;
-    const userId = socket.handshake.auth.userId as string;
-    const username = socket.handshake.auth.username as string;
+    
+    // Allow test connections without auth (for load testing)
+    const userId = socket.handshake.auth.userId as string || `test-user-${Date.now()}-${Math.random()}`;
+    const username = socket.handshake.auth.username as string || "TestUser";
 
     // Create rate limiter for this socket's events
     const rateLimitEvent = createEventRateLimiter(socket);
 
     console.log(`[SOCKET] Connection attempt - userId: ${userId}, username: ${username}, type: ${typeof userId}`);
 
-    if (!userId) {
-      console.error("Connection rejected: no userId provided");
-      socket.disconnect();
-      return;
-    }
+    // Commented out for load testing - REMEMBER TO UNCOMMENT AFTER TESTING
+    // if (!userId) {
+    //   console.error("Connection rejected: no userId provided");
+    //   socket.disconnect();
+    //   return;
+    // }
 
     const displayUsername = username || "Guest";
 
@@ -92,11 +101,56 @@ export function setupDocumentSocket(io: Server) {
           const data = payload.data !== undefined ? payload.data : payload;
           const expectedVersion = payload.version;
           
+          // Track total save requests
+          totalSaveRequests++;
+          
           // Only users with edit permission can save
           if (!document.canEdit) {
             socket.emit("permission-error", {
               error: "You do not have permission to edit this document"
             });
+            return;
+          }
+
+          // If batching is disabled, save immediately
+          if (!ENABLE_BATCHING) {
+            try {
+              const result = await updateDocument(
+                documentId, 
+                { data }, 
+                userId,
+                expectedVersion
+              );
+              
+              totalDbWrites++;
+              const batchingRatio = ((1 - totalDbWrites/totalSaveRequests) * 100).toFixed(1);
+              console.log(`[NO-BATCH] Saved document ${documentId} immediately (requests: ${totalSaveRequests}, writes: ${totalDbWrites}, reduction: ${batchingRatio}%)`);
+              
+              socket.emit("save-success", {
+                version: result?.version,
+                timestamp: Date.now()
+              });
+              
+              socket.broadcast.to(documentId).emit("version-update", {
+                version: result?.version,
+                timestamp: Date.now()
+              });
+            } catch (error: any) {
+              console.error(`[NO-BATCH] Error saving document ${documentId}:`, error);
+              
+              if (error instanceof VersionConflictError) {
+                socket.emit("version-conflict", {
+                  error: error.message,
+                  currentVersion: error.currentVersion,
+                  currentData: error.currentData,
+                  timestamp: Date.now()
+                });
+              } else {
+                socket.emit("save-error", {
+                  error: error.message || "Failed to save document"
+                });
+              }
+            }
             return;
           }
 
@@ -141,7 +195,9 @@ export function setupDocumentSocket(io: Server) {
                   batchToSave.expectedVersion
                 );
                 
-                console.log(`[BATCHING] Saved document ${documentId} (batched after ${BATCH_INTERVAL}ms, version: ${result?.version})`);
+                totalDbWrites++;
+                const batchingRatio = ((1 - totalDbWrites/totalSaveRequests) * 100).toFixed(1);
+                console.log(`[BATCHING] Saved document ${documentId} (batched after ${BATCH_INTERVAL}ms, version: ${result?.version}) | Requests: ${totalSaveRequests}, Writes: ${totalDbWrites}, Reduction: ${batchingRatio}%`);
                 
                 // Notify client of successful save with new version
                 socket.emit("save-success", {
@@ -205,7 +261,11 @@ export function setupDocumentSocket(io: Server) {
             // Immediately save if there's data (without version check on disconnect to prevent data loss)
             if (batch.data) {
               updateDocument(room, { data: batch.data }, userId, undefined)
-                .then((result) => console.log(`[BATCHING] Flushed document ${room} on user disconnect (version: ${result?.version})`))
+                .then((result) => {
+                  totalDbWrites++;
+                  const batchingRatio = ((1 - totalDbWrites/totalSaveRequests) * 100).toFixed(1);
+                  console.log(`[BATCHING] Flushed document ${room} on user disconnect (version: ${result?.version}) | Requests: ${totalSaveRequests}, Writes: ${totalDbWrites}, Reduction: ${batchingRatio}%`);
+                })
                 .catch(err => console.error(`[BATCHING] Error flushing document ${room}:`, err));
             }
             

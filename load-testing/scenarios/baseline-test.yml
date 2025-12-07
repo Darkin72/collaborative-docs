@@ -1,5 +1,19 @@
+# Cách chạy:
+# Bước 1: -set ENABLE_BATCHING = false trong server/src/sockets/documentSocket.ts
+#         -Chỉnh các tham số của server\src\middleware\socketRateLimiter.ts
+#         -Tắt comment trong server\src\middleware\permissions.ts
+# Bước 2: Chạy chương trình (với 2 tabs)
+#   Bước 2.1: Tab 1: docker-compose up --build -d
+#   Bước 2.2 (Sau khi docker build xong): 
+#             Tab 1: cd load-testing
+#                    npm run test:baseline
+#             Tab 2: docker logs -f collaborative-docs-server-1 
+#   Bước 2.3 (Sau khi test xong): 
+#             Tab 1: .\compare-reports.ps1
+#             Tab 2: docker logs collaborative-docs-server-1 2>&1 | Select-String "\[NO-BATCH\] Saved" | Measure-Object | Select-Object Count
+
 config:
-  target: "http://localhost:3000"
+  target: "http://localhost:12345"
   phases:
     - duration: 120  # 2 phút
       arrivalRate: 5  # 5 users mới mỗi giây → ~600 total users
@@ -7,6 +21,9 @@ config:
   engines:
     socketio:
       transports: ["websocket"]
+      auth:
+        userId: "{{ $randomString() }}"
+        username: "ArtilleryUser{{ $randomNumber(1, 10000) }}"
 
 scenarios:
   - name: "Collaborative Document Editing"

@@ -37,6 +37,17 @@ export async function checkDocumentPermission(
     };
   }
 
+  // TODO: REMOVE AFTER LOAD TESTING - Allow test users full access
+  // if (userId.startsWith('test-user-')) {
+  //   console.log(`[PERMISSION CHECK] Test user access granted: ${userId}`);
+  //   return {
+  //     hasAccess: true,
+  //     role: DocumentRole.EDITOR,
+  //     canView: true,
+  //     canEdit: true,
+  //   };
+  // }
+
   // Check if user is the owner
   if (document.ownerId === userId) {
     console.log(`[PERMISSION CHECK] Owner access granted`);
