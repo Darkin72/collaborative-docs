@@ -124,8 +124,7 @@ npm run test:baseline
 docker compose up -d --build
 
 # Rebuild hoàn toàn (xóa cache, volumes)
-docker compose down --rmi all --volumes --remove-orphans
-docker compose up -d --build --force-recreate
+sudo docker compose down --rmi all --volumes --remove-orphans && sudo docker compose up -d --build --force-recreate
 
 # Xem logs
 docker compose logs -f server
