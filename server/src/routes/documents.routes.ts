@@ -6,6 +6,7 @@ import {
   getDocumentPermissionsList,
   deleteDocument
 } from "../controllers/documentController";
+import { exportToPdf, exportToDocx } from "../controllers/documentExportController";
 import { 
   DocumentsResponse, 
   UpdateRoleRequest, 
@@ -141,5 +142,9 @@ router.delete(
     }
   }
 );
+
+// Export routes
+router.get("/:documentId/export/pdf", exportToPdf);
+router.get("/:documentId/export/docx", exportToDocx);
 
 export default router;

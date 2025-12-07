@@ -15,10 +15,12 @@
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
     "cors": "^2.8.5",
+    "docx": "^8.5.0",
     "dotenv": "^16.4.5",
     "express": "^5.1.0",
     "express-rate-limit": "^8.2.1",
     "mongoose": "^8.3.1",
+    "puppeteer": "^23.11.1",
     "rate-limit-redis": "^4.3.1",
     "redis": "^4.6.13",
     "socket.io": "^4.7.5"

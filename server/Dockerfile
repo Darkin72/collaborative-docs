@@ -14,9 +14,24 @@ COPY . .
 # nếu có script build (ví dụ tsc), chạy nó; nếu không có, lệnh này không phá vỡ (yêu cầu script build tồn tại)
 RUN if [ -f package.json ] && grep -q "\"build\":" package.json; then npm run build; fi
 
-# 3) Production image
+# 3) Production image with Chromium for Puppeteer
 FROM node:20-alpine AS production
 WORKDIR /app
+
+# Install Chromium and dependencies for Puppeteer
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    font-noto \
+    font-noto-cjk
+
+# Tell Puppeteer to use installed Chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 # tạo user non-root
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup

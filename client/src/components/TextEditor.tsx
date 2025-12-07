@@ -5,6 +5,7 @@ import "quill/dist/quill.snow.css";
 import { TOOLBAR_OPTIONS, SAVE_INTERVAL_MS } from "../constants";
 import socket from "../socket";
 import { RoleManagement } from "./RoleManagement";
+import { ExportButton } from "./ExportButton";
 
 export const TextEditor = () => {
   const { id: documentId } = useParams();
@@ -238,6 +239,9 @@ export const TextEditor = () => {
           `}>
             Your role: {userRole.toUpperCase()}
           </div>
+        )}
+        {currentUser && documentId && (
+          <ExportButton documentId={documentId} userId={currentUser.id} />
         )}
         {currentUser && userRole === 'owner' && (
           <>
