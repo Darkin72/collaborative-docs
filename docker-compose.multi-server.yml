@@ -1,0 +1,123 @@
+# Multi-Server Configuration for Redis Pub/Sub Testing
+# This setup creates 3 server instances to test cross-server message delivery
+
+services:
+  # MongoDB - Shared database
+  mongo:
+    image: mongo:latest
+    container_name: collab-mongo-multi
+    ports:
+      - "27017:27017"
+    networks:
+      - internal_net
+    volumes:
+      - mongo_data_multi:/data/db
+    restart: unless-stopped
+
+  # Redis - Message broker for Pub/Sub
+  redis:
+    image: redis:latest
+    container_name: collab-redis-multi
+    ports:
+      - "6379:6379"
+    networks:
+      - internal_net
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data_multi:/data
+
+  # Server Instance 1
+  server1:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: myapp-server:multi
+    container_name: collab-server1
+    ports:
+      - "3001:3000"
+    env_file:
+      - ./server/.env
+    environment:
+      - PORT=3000
+      - SERVER_ID=server1
+      - DATABASE_URL=mongodb://mongo:27017/mydb
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - internal_net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Server Instance 2
+  server2:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: myapp-server:multi
+    container_name: collab-server2
+    ports:
+      - "3002:3000"
+    env_file:
+      - ./server/.env
+    environment:
+      - PORT=3000
+      - SERVER_ID=server2
+      - DATABASE_URL=mongodb://mongo:27017/mydb
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - internal_net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Server Instance 3
+  server3:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: myapp-server:multi
+    container_name: collab-server3
+    ports:
+      - "3003:3000"
+    env_file:
+      - ./server/.env
+    environment:
+      - PORT=3000
+      - SERVER_ID=server3
+      - DATABASE_URL=mongodb://mongo:27017/mydb
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mongo
+      - redis
+    networks:
+      - internal_net
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  internal_net:
+    driver: bridge
+
+volumes:
+  mongo_data_multi:
+  redis_data_multi:
