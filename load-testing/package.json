@@ -21,7 +21,10 @@
     "test:cache": "node test-scripts/test-cache-efficiency.js",
     "test:compare": "node test-scripts/compare-before-after.js",
     "artillery:rate-limit": "artillery run scenarios/rate-limit-validation.yml --output reports/rate-limit-artillery.json",
-    "artillery:cache": "artillery run scenarios/cache-performance.yml --output reports/cache-artillery.json"
+    "artillery:cache": "artillery run scenarios/cache-performance.yml --output reports/cache-artillery.json",
+    "test:pubsub": "node test-scripts/test-pubsub-multi-server.js",
+    "test:single-server": "node test-scripts/test-single-server-baseline.js",
+    "compare:single-vs-multi": "powershell -ExecutionPolicy Bypass -File compare-single-vs-multi.ps1"
   },
   "dependencies": {
     "artillery": "^2.0.20",
