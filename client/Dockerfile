@@ -4,33 +4,28 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
-# copy package files first để tận dụng layer cache
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# copy source & build
 COPY . .
 ENV NODE_ENV=production
 RUN npm run build
 
-# 2) Production stage: lightweight static server
-FROM node:20-alpine AS production
-# cài serve (hỗ trợ SPA tốt hơn http-server)
-RUN npm install -g serve
+# 2) Production stage: nginx alpine (chỉ ~2-3MB)
+FROM nginx:alpine AS production
 
-# tạo user không phải root
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Copy built files
+COPY --from=build /app/dist /usr/share/nginx/html
 
-WORKDIR /app
-# copy artifact build từ stage trước
-COPY --from=build /app/dist /app
+# Copy nginx config for SPA
+RUN echo 'server { \
+    listen 80; \
+    location / { \
+        root /usr/share/nginx/html; \
+        try_files $uri $uri/ /index.html; \
+    } \
+}' > /etc/nginx/conf.d/default.conf
 
-# set quyền và user
-RUN chown -R appuser:appgroup /app
-USER appuser
-
-# serve trên port 80 trong container
 EXPOSE 80
 
-# cmd: serve static với SPA mode (-s = single page app)
-CMD ["serve", "-s", "/app", "-l", "80"]
+CMD ["nginx", "-g", "daemon off;"]

@@ -45,6 +45,7 @@ logs/
 coverage/
 .nyc_output/
 test/
+rl-test/
 
 # Temporary files
 tmp/

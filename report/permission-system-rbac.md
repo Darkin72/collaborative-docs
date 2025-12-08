@@ -290,7 +290,7 @@ interface UpdateRoleResponse {
 
 **Example:**
 ```bash
-curl -X POST http://localhost:3000/api/documents/update-role \
+curl -X POST http://localhost:12345/api/documents/update-role \
   -H "Content-Type: application/json" \
   -d '{
     "documentId": "doc-123",
