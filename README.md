@@ -189,22 +189,49 @@ User typing → Buffer → Buffer → Buffer → [2s] → MongoDB write (1 lần
 
 ---
 
-### 2. Redis Document Cache (Giảm 90% latency)
+### 2. Redis Document Cache (Cải thiện 29-86% throughput)
 
 **Vấn đề:** Mỗi request đọc document đều query trực tiếp vào MongoDB.
 
 **Giải pháp:** Cache document trong Redis với TTL 5 phút, tự động invalidate khi có thay đổi.
 
-| Metric | Trước | Sau | Cải thiện |
-|--------|-------|-----|-----------|
-| Document Load | ~50ms | ~5ms | **90%** |
-| API Response | ~50ms | ~10ms | **80%** |
+**Cache Stats Endpoint:**
+```json
+GET /api/cache-stats
+{
+  "hits": 1250,
+  "misses": 180,
+  "writes": 200,
+  "invalidations": 15,
+  "hitRate": "87.41%"
+}
+```
+
+**API Performance (Artillery Load Testing):**
+
+| API Endpoint | Metric | Trước Cache | Sau Cache | Cải thiện |
+|--------------|--------|-------------|-----------|-----------|
+| **GET /api/documents** | Avg Latency | 272.99ms | 210.73ms | +22.8% |
+| | P50 Latency | 266.85ms | 207.17ms | +22.4% |
+| | P95 Latency | 341.23ms | 214.27ms | +37.2% |
+| | P99 Latency | 384.80ms | 329.88ms | +14.3% |
+| | Throughput | 3.66 r/s | 4.75 r/s | **+29.8%** |
+| **GET /api/documents/:id** | Avg Latency | 301.77ms | 179.64ms | +40.5% |
+| | P50 Latency | 197.46ms | 162.70ms | +17.6% |
+| | P95 Latency | 900.41ms | 316.42ms | +64.9% |
+| | P99 Latency | 2000.97ms | 340.36ms | **+83.0%** |
+| | Throughput | 3.31 r/s | 5.57 r/s | **+68.3%** |
+| **GET /api/documents/search** | Avg Latency | 122.16ms | 65.63ms | +46.3% |
+| | P50 Latency | 73.39ms | 55.91ms | +23.8% |
+| | P95 Latency | 395.71ms | 101.30ms | +74.4% |
+| | P99 Latency | 402.99ms | 157.87ms | +60.8% |
+| | Throughput | 8.19 r/s | 15.24 r/s | **+86.1%** |
 
 📄 Chi tiết: [`report/rate-limit-redis-cache.md`](./report/rate-limit-redis-cache.md)
 
 ---
 
-### 3. MongoDB Indexing (Tăng 10-200x tốc độ query)
+### 3. MongoDB Indexing (Cải thiện 94% P99 latency, giảm 90% CPU)
 
 **Vấn đề:** Các truy vấn chậm khi số lượng documents tăng lên hàng nghìn (collection scan).
 
@@ -215,36 +242,99 @@ User typing → Buffer → Buffer → Buffer → [2s] → MongoDB write (1 lần
 | Single Field | `ownerId` | Tìm documents của user |
 | Single Field | `name` | Tìm kiếm theo tên |
 | Single Field | `createdAt` | Sắp xếp theo ngày |
-| Compound | `{ ownerId, createdAt }` | Query kết hợp |
+| Compound | `{ ownerId, createdAt }` | Query kết hợp + sắp xếp |
 | Text Index | `name` | Full-text search |
 
-| Metric | Trước | Sau | Cải thiện |
-|--------|-------|-----|-----------|
-| Query 10k docs | ~1000ms | ~20ms | **50x** |
+**Đánh giá hiệu quả (Test với 10,100 documents, trả về 100 documents):**
+
+| Metric | Trước Indexing | Sau Indexing | Cải thiện |
+|--------|----------------|--------------|-----------|
+| **1. Scan-to-Return Ratio** (Efficiency) | 51:1 | 1:1 | **98.0%** |
+| **2. P99 Query Latency** (User Experience) | 81.85ms | 4.88ms | **94.0%** |
+| **3. CPU Intensity** (Resource Cost) | 10.10 (High) | 1.00 (Low) | **90.1%** |
+| **4. Write Latency** (Trade-off) | 0.43ms | 0.35ms | -0.08ms |
+
+**Phân tích:**
+- **Efficiency**: Database chỉ cần scan đúng 100 docs thay vì 5,100 docs (giảm 98% công việc lãng phí)
+- **Speed**: Truy vấn quan trọng nhất (find by ownerId + sort) nhanh hơn 94% (P99: 81.85ms → 4.88ms)
+- **CPU**: Giảm 90% CPU vì dùng B-Tree traversal thay vì full collection scan
+- **Cost**: Write latency không tăng (thậm chí nhanh hơn 0.08ms) nhờ MongoDB optimization
 
 📄 Chi tiết: [`report/mongodb-indexing-optimization.md`](./report/mongodb-indexing-optimization.md)
 
 ---
 
-### 4. Rate Limiting (Bảo vệ API & WebSocket)
+### 4. Rate Limiting (Bảo vệ đa tầng API & WebSocket)
 
 **Vấn đề:** Hệ thống dễ bị tấn công DDoS, brute force, spam.
 
 **Giải pháp:** Multi-layer rate limiting với Redis store.
 
-| Layer | Giới hạn | Mục đích |
-|-------|----------|----------|
-| General API | 100 req/phút | Bảo vệ tất cả endpoints |
-| Auth API | 20 req/phút | Ngăn brute force login |
-| Document API | 50 req/phút | Bảo vệ document operations |
-| WebSocket Connection | 10 conn/phút | Ngăn connection flood |
-| WebSocket Events | 50 events/giây | Ngăn event flood |
+| Nguy cơ | Giải pháp | Rate Limit |
+|---------|-----------|------------|
+| Brute Force Login | Auth Rate Limiter | 20 req/min |
+| API Spam | General Rate Limiter | 100 req/min |
+| Tràn WebSocket | Socket Rate Limiter | 10 conn/min, 50 events/sec |
+| Document Spam | Document Rate Limiter | 50 req/min |
+
+**Rate Limit Stats:**
+```javascript
+getRateLimitStats() → {
+  activeConnections: 45,
+  activeEventTrackers: 230
+}
+```
 
 📄 Chi tiết: [`report/rate-limit-redis-cache.md`](./report/rate-limit-redis-cache.md)
 
 ---
 
-### 5. Redis Pub/Sub (Horizontal Scaling)
+### 5. Operational Transformation (OT) + Optimistic Concurrency Control (OCC)
+
+**Vấn đề:** Nhiều người dùng đồng thời chỉnh sửa cùng tài liệu dẫn đến:
+- **Mất dữ liệu** (data loss): Thay đổi của người này ghi đè thay đổi của người khác
+- **Version conflicts**: Client và server có phiên bản khác nhau
+
+**Giải pháp:**
+- **OCC (Optimistic Concurrency Control)**: Kiểm tra version trước khi ghi để phát hiện conflicts
+- **OT (Operational Transformation)**: Tự động transform các thao tác để merge conflicts
+
+**A. Data Loss Prevention (OCC):**
+
+Test: 3 users đồng thời ghi 10 ký tự lên cùng 1 document
+
+| Metric | Trước OCC | Sau OCC | Cải thiện |
+|--------|-----------|---------|-----------|
+| Số ký tự sau event | 10 | 30 | - |
+| % ký tự mất mát | **66.67%** | **0%** | **100%** |
+
+**B. Conflict Resolution (OT):**
+
+Test: 1200 thao tác ghi trong 1 phút, đo số lần server báo conflict
+
+| Metric | Trước OT | Sau OT | Cải thiện |
+|--------|----------|--------|-----------|
+| Số thao tác ghi | 1200 | 1200 | - |
+| Số thao tác conflict | 356 | 1 | - |
+| % conflict | **29.67%** | **0.083%** | **99.7%** |
+
+**C. Latency Overhead (OT Processing Cost):**
+
+Test: 100 write requests, đo round-trip time
+
+| Metric | Trước OT | Sau OT | Overhead |
+|--------|----------|--------|----------|
+| Avg Latency | 1.30ms | 1.92ms | +0.62ms |
+| P95 Latency | 1.88ms | 2.10ms | +0.22ms |
+| P99 Latency | 3.17ms | 19.50ms | +16.33ms |
+
+**Kết luận:** OT thêm ~1ms latency trung bình nhưng loại bỏ gần như hoàn toàn conflicts (99.7%).
+
+📄 Chi tiết: [`report/operational-transformation.md`](./report/operational-transformation.md), [`report/optimistic-concurrency-control.md`](./report/optimistic-concurrency-control.md)
+
+---
+
+### 6. Redis Pub/Sub (Horizontal Scaling)
 
 **Vấn đề:** Với single server, không thể scale horizontal. Users kết nối vào server khác nhau không nhận được updates của nhau.
 
@@ -260,7 +350,7 @@ User typing → Buffer → Buffer → Buffer → [2s] → MongoDB write (1 lần
 
 ---
 
-### 6. Permission System - RBAC (Role-Based Access Control)
+### 7. Permission System - RBAC (Role-Based Access Control)
 
 **Vấn đề:** Cần kiểm soát quyền truy cập tài liệu chi tiết theo từng user.
 
@@ -278,14 +368,15 @@ User typing → Buffer → Buffer → Buffer → [2s] → MongoDB write (1 lần
 
 ### Tổng kết hiệu suất
 
-| Optimization | Vấn đề | Giải pháp | Cải thiện |
-|--------------|--------|-----------|-----------|
-| **WebSocket Batching** | Quá nhiều DB writes | Buffer + batch writes | **43%** giảm writes |
-| **Redis Cache** | Database load cao | Cache documents | **90%** giảm latency |
-| **MongoDB Indexing** | Slow queries | Đánh index | **10-200x** faster |
-| **Rate Limiting** | DDoS/Spam | Multi-layer limits | Bảo vệ endpoints |
+| Optimization | Vấn đề | Giải pháp | Cải thiện chính |
+|--------------|--------|-----------|----------------|
+| **WebSocket Batching** | Quá nhiều DB writes | Buffer + batch writes | **-43%** DB writes, +18% throughput |
+| **Redis Cache** | Database load cao | Cache documents | **+29-86%** throughput, 87% hit rate |
+| **MongoDB Indexing** | Slow queries | Đánh 4 indexes | **94%** faster (P99), 90% less CPU |
+| **Rate Limiting** | DDoS/Spam/Brute Force | 4-layer protection | Bảo vệ toàn diện |
+| **OT + OCC** | Data loss, conflicts | Transform operations | **0%** data loss, 99.7% less conflicts |
 | **Redis Pub/Sub** | Single server limit | Message broker | Horizontal scaling |
-| **RBAC Permission** | Unauthorized access | Role-based control | Granular permissions |
+| **RBAC Permission** | Unauthorized access | 3-role system | Granular control |
 
 ---
 
